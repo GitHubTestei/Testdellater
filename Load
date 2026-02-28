@@ -130,16 +130,17 @@ local Keybinds = {
 
 local ScriptUnloaded = false
 
-local Remotes = ReplicatedStorage:WaitForChild("Remotes")
-local UpdateBio = Remotes:WaitForChild("UpdateBio")
-local UpdateBioColor = Remotes:WaitForChild("UpdateBioColor")
-local UpdateRPColor = Remotes:WaitForChild("UpdateRPColor")
+local Remotes = ReplicatedStorage:WaitForChild("Remotes", 10)
+local UpdateBio = Remotes and Remotes:WaitForChild("UpdateBio", 5)
+local UpdateBioColor = Remotes and Remotes:WaitForChild("UpdateBioColor", 5)
+local UpdateRPColor = Remotes and Remotes:WaitForChild("UpdateRPColor", 5)
 
 local rainbowConnection = nil
 local bioSet = false
 
 local function startRainbow()
     if rainbowConnection then return end
+    if not UpdateBio or not UpdateBioColor or not UpdateRPColor then return end
     if not bioSet then
         UpdateBio:FireServer("")
         bioSet = true
