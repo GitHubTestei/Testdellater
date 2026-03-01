@@ -262,6 +262,10 @@ UserInputService.InputBegan:Connect(function(input, gameProcessed)
                 isToggled = false
             end
         else
+            -- Always land at the player's position when toggling off
+            if playerSnapshotCFrame and hrp and hrp.Parent then
+                hrp.CFrame = playerSnapshotCFrame
+            end
             playerSnapshotCFrame = nil
             statusLabel.Text = "Status: OFF  (Press C)"
             statusLabel.TextColor3 = Color3.new(1, 1, 1)
