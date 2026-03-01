@@ -16,9 +16,9 @@ local playerSnapshotCFrame = nil
 local lastTeleportTime = 0
 
 -- Configurable delays (all adjustable via sliders)
-local teleportDelay     = 0.07  -- how fast it bounces between spot and player
-local teleportToDelay   = 0.05  -- delay before teleporting TO the target spot
-local teleportBackDelay = 0.05  -- delay before teleporting BACK to player position
+local teleportDelay     = 0.09  -- how fast it bounces between spot and player
+local teleportToDelay   = 0.00  -- delay before teleporting TO the target spot
+local teleportBackDelay = 0.02  -- delay before teleporting BACK to player position
 local grabLoopDelay     = 0.01  -- how fast grabs fire in the loop
 local grabStartDelay    = 0.50  -- how long to wait before grabs begin after C press
 
