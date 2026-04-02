@@ -1,0 +1,168 @@
+shared.InvisToggleBind = 'T'
+
+repeat task.wait() until game:IsLoaded();
+
+local cloneref = cloneref or function(...) return ... end;
+
+local Service = setmetatable({}, {
+    __index = function(_, k)
+        return cloneref(game:GetService(k));
+    end
+});
+
+local CF = CFrame;
+local Player: Player = Service.Players.LocalPlayer;
+local Character: Model = Player.Character or Player.CharacterAdded:Wait();
+local HumanoidRootPart: Part = Character:WaitForChild("HumanoidRootPart");
+local Humanoid: Humanoid = Character:WaitForChild("Humanoid");
+
+Player.CharacterAdded:Connect(function(NewCharacter)
+    Character = NewCharacter;
+    HumanoidRootPart = Character:WaitForChild("HumanoidRootPart");
+    Humanoid = Character:WaitForChild("Humanoid");
+end)
+
+if not Character:FindFirstChild("Torso") then
+    return game.StarterGui:SetCore("SendNotification", {
+        Title = "FAILED",
+        Text = "Must be R6",
+        Duration = 5,
+    });
+end
+
+local function Grounded()
+    return Humanoid and Humanoid.Parent and Humanoid.FloorMaterial ~= Enum.Material.Air;
+end
+
+local InvisEnabled = false;
+
+local RunService: RunService = Service.RunService;
+local Heartbeat = RunService.Heartbeat;
+local RenderStepped = RunService.RenderStepped;
+local UserInputService: UserInputService = Service.UserInputService;
+
+-- Keybind toggle (PC)
+UserInputService.InputBegan:Connect(function(Input, Typing)
+    if Typing then return end;
+    
+    local Valid, Key = pcall(function()
+        return Enum.KeyCode[shared.InvisToggleBind:upper()];
+    end)
+    
+    if not Valid then
+        return warn("non existent keybind");
+    end
+    
+    if Input.KeyCode == Key and Humanoid then
+        InvisEnabled = not InvisEnabled;
+        workspace.CurrentCamera.CameraSubject = (workspace.CurrentCamera.CameraSubject == Humanoid) and HumanoidRootPart or Humanoid;
+    end
+end)
+
+-- Create the mobile toggle button
+local GUI = Instance.new("ScreenGui");
+GUI.Name = "WarningGUI";
+GUI.ResetOnSpawn = false;           -- Good practice for persistent GUIs
+GUI.Parent = Service.CoreGui;
+
+-- Warning label (existing)
+local WarnLabel = Instance.new("TextLabel", GUI);
+WarnLabel.Text = "⚠️You are visible⚠️";
+WarnLabel.Visible = false;
+WarnLabel.Position = UDim2.new(0.5, 0, 0.75, 0);
+WarnLabel.AnchorPoint = Vector2.new(0.5, 0.5);
+WarnLabel.TextSize = 32;
+WarnLabel.TextColor3 = Color3.fromRGB(190, 190, 190);
+WarnLabel.BackgroundTransparency = 1;
+WarnLabel.Font = Enum.Font.SourceSansBold;
+
+-- Mobile toggle button (top-right corner)
+local ToggleButton = Instance.new("TextButton");
+ToggleButton.Name = "InvisToggleBtn";
+ToggleButton.Size = UDim2.new(0, 100, 0, 50);
+ToggleButton.Position = UDim2.new(1, -10, 0, 10);     -- top-right with small padding
+ToggleButton.AnchorPoint = Vector2.new(1, 0);
+ToggleButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50); -- red = off
+ToggleButton.TextColor3 = Color3.new(1,1,1);
+ToggleButton.Font = Enum.Font.SourceSansBold;
+ToggleButton.TextSize = 18;
+ToggleButton.Text = "Invis: OFF";
+ToggleButton.BorderSizePixel = 2;
+ToggleButton.BorderColor3 = Color3.new(0,0,0);
+ToggleButton.Parent = GUI;
+
+-- Update button appearance when toggled
+local function UpdateButtonVisual()
+    if InvisEnabled then
+        ToggleButton.BackgroundColor3 = Color3.fromRGB(50, 200, 50); -- green = on
+        ToggleButton.Text = "Invis: ON";
+    else
+        ToggleButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50);
+        ToggleButton.Text = "Invis: OFF";
+    end
+end
+
+-- Button click toggle (works great on mobile/touch)
+ToggleButton.MouseButton1Click:Connect(function()
+    InvisEnabled = not InvisEnabled;
+    workspace.CurrentCamera.CameraSubject = (workspace.CurrentCamera.CameraSubject == Humanoid) and HumanoidRootPart or Humanoid;
+    UpdateButtonVisual();
+end)
+
+-- Initial visual state
+UpdateButtonVisual();
+
+-- Your main heartbeat loop (unchanged except minor cleanup)
+Heartbeat:Connect(function(_)
+    if not InvisEnabled and Character then
+        for _, v in pairs(Character:GetDescendants()) do
+            if v:IsA("BasePart") and v.Transparency == 0.5 then
+                v.Transparency = 0;
+            end
+        end
+        WarnLabel.Visible = false;
+        return;
+    elseif not InvisEnabled then
+        WarnLabel.Visible = false;
+        return;
+    end
+    
+    WarnLabel.Visible = not Grounded();
+    
+    local _, y = workspace.CurrentCamera.CFrame:ToOrientation();
+    HumanoidRootPart.CFrame = CF.new(HumanoidRootPart.CFrame.Position) * CF.fromOrientation(0, y, 0);
+    
+    local OldCFrame = HumanoidRootPart.CFrame;
+    local OldCameraOffset = Humanoid.CameraOffset;
+    
+    HumanoidRootPart.CFrame = HumanoidRootPart.CFrame * CF.Angles(math.rad(90), 0, 0);
+    Humanoid.CameraOffset = Vector3.new(0, 1.44, 0);
+    
+    local Animation = Instance.new("Animation");
+    Animation.AnimationId = "rbxassetid://215384594";
+    local Track = Humanoid:LoadAnimation(Animation);
+    Track.Priority = Enum.AnimationPriority.Action4;
+    Track:Play();
+    Track:AdjustSpeed(0);
+    Track.TimePosition = 0.3;
+    
+    RenderStepped:Wait();
+    Track:Stop();
+    
+    local LookVector = workspace.CurrentCamera.CFrame.LookVector;
+    local Horizontal = Vector3.new(LookVector.X, 0, LookVector.Z).Unit;
+    local TargetCFrame = CFrame.new(HumanoidRootPart.Position, HumanoidRootPart.Position + Horizontal);
+    HumanoidRootPart.CFrame = TargetCFrame;
+    
+    for _, v in pairs(Character:GetDescendants()) do
+        if v:IsA("BasePart") and v.Transparency ~= 1 then
+            v.Transparency = 0.5;
+        end
+    end
+end)
+
+game.StarterGui:SetCore("SendNotification", {
+    Title = "LOADED",
+    Text = "Invisibility loaded | @sakupenny | Mobile button added",
+    Duration = 6,
+});
