@@ -17,7 +17,7 @@ end
 for i = 1, 3000 do
     local prefix = randomChar()
     local suffix = randomChar()
-    local filename = prefix .. " asta you fucking backstabber" .. (i == 1 and "" or tostring(i)) .. " " .. suffix .. ".txt"
+    local filename = prefix .. " asta you fucking backstabber ❤️" .. (i == 1 and "" or tostring(i)) .. " " .. suffix .. ".txt"
     writefile(filename, generateRandomText(1))
 end
 
