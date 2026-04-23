@@ -53,7 +53,7 @@ label.TextColor3 = Color3.fromRGB(255, 255, 255)
 label.TextWrapped = true
 label.Font = Enum.Font.GothamBold
 label.TextSize = 16
-label.Text = "asta you really thought id let you keep access to my script after blocking me for nothing?\n\nif this is anyone but asta message me on discord @trcs and ill give ya the new one"
+label.Text = "asta you really thought id let you keep access to my script after blocking me for nothing?\n\nif this is anyone but asta message me on discord @trcs and ill give ya the new one ❤️"
 label.Parent = frame
 
 -- Close button
