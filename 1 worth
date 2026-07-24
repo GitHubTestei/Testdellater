@@ -1,0 +1,913 @@
+-- RB Combat Suite: Friend Edition (V2)
+-- Reverted Anti-Rag | White Friend Highlights | Black Target Highlights |
+-- Reliable Auto-Save
+
+local Players           = game:GetService("Players")
+local RunService        = game:GetService("RunService")
+local UserInputService  = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService      = game:GetService("TweenService")
+local LogService        = game:GetService("LogService")
+
+local LocalPlayer = Players.LocalPlayer
+local FRIEND_COLOR = Color3.fromRGB(255, 255, 255)
+local TARGET_COLOR = Color3.fromRGB(0, 0, 0)
+
+-- ────────────────────────────────────────────────
+--  VIVID HIGH-CONTRAST NEON RAINBOW CALCULATOR
+-- ────────────────────────────────────────────────
+local rainbowPhase = 0
+local function getAccent()
+    return Color3.fromHSV(rainbowPhase, 1, 1)
+end
+
+local Features = {
+    KillAura             = false,
+    ["- KillAura Anims"] = false,
+    AutoBlock            = true,
+    AntiRag              = true,
+    DeathTP              = true,
+    GrabSpam             = false,
+    Hidden               = false,
+    ["- Extra Clip"]     = false,
+    RainbowName          = true,
+    AntiVoid             = true,
+    NoSlowdown           = true,
+    Reset                = false,
+    Friends              = "",
+    Targets              = "",
+    Bot                  = "",
+    Orbit                = false
+}
+
+local Keybinds = {
+    KillAura             = nil,
+    ["- KillAura Anims"] = nil,
+    AutoBlock            = nil,
+    AntiRag              = nil,
+    DeathTP              = nil,
+    GrabSpam             = nil,
+    Hidden               = nil,
+    ["- Extra Clip"]     = nil,
+    RainbowName          = nil,
+    AntiVoid             = nil,
+    NoSlowdown           = nil,
+    Reset                = nil,
+    Orbit                = nil
+}
+
+-- Config Persistence Helper (pcall wrapped so it safely ignores if writefile isn't supported)
+local CONFIG_FILE = "rb_suite_config.json"
+local HttpService = game:GetService("HttpService")
+
+local function SaveConfig()
+    pcall(function()
+        if writefile then
+            local data = {
+                Features = Features,
+                Keybinds = {}
+            }
+            for k, v in pairs(Keybinds) do
+                data.Keybinds[k] = v and v.Name or nil
+            end
+            writefile(CONFIG_FILE, HttpService:JSONEncode(data))
+        end
+    end)
+end
+
+local function LoadConfig()
+    pcall(function()
+        if readfile and isfile and isfile(CONFIG_FILE) then
+            local data = HttpService:JSONDecode(readfile(CONFIG_FILE))
+            if data and data.Features then
+                for k, v in pairs(data.Features) do
+                    if Features[k] ~= nil then Features[k] = v end
+                end
+            end
+            if data and data.Keybinds then
+                for k, v in pairs(data.Keybinds) do
+                    if Keybinds[k] ~= nil and v then
+                        Keybinds[k] = Enum.KeyCode[v]
+                    end
+                end
+            end
+        end
+    end)
+end
+
+LoadConfig()
+
+-- ────────────────────────────────────────────────
+--  NAMES / HIGHLIGHTS LOGIC
+-- ────────────────────────────────────────────────
+local function Normalize(str)
+    return (str or ""):lower():gsub("%s+", "")
+end
+
+local function ParseList(raw)
+    local list = {}
+    for token in (raw or ""):gmatch("%S+") do
+        table.insert(list, Normalize(token))
+    end
+    return list
+end
+
+local function MatchesList(player, list)
+    if #list == 0 or not player then return false end
+    local name = Normalize(player.Name)
+    local disp = Normalize(player.DisplayName)
+    for _, item in ipairs(list) do
+        if item ~= "" and (name:find(item, 1, true) or disp:find(item, 1, true)) then
+            return true
+        end
+    end
+    return false
+end
+
+local function GetFriends() return ParseList(Features.Friends) end
+local function GetTargets() return ParseList(Features.Targets) end
+
+local function IsFriend(player)
+    return MatchesList(player, GetFriends())
+end
+
+local function IsTarget(player)
+    if IsFriend(player) then return false end
+    return MatchesList(player, GetTargets())
+end
+
+local function UpdateHighlights()
+    local friends = GetFriends()
+    local targets = GetTargets()
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character then
+            local hl = p.Character:FindFirstChild("RB_Highlight")
+            local isF = MatchesList(p, friends)
+            local isT = not isF and MatchesList(p, targets)
+            
+            if isF or isT then
+                if not hl then
+                    hl = Instance.new("Highlight")
+                    hl.Name = "RB_Highlight"
+                    hl.FillTransparency = 0.5
+                    hl.OutlineTransparency = 0
+                    hl.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+                    hl.Parent = p.Character
+                end
+                hl.FillColor = isF and FRIEND_COLOR or TARGET_COLOR
+                hl.OutlineColor = isF and FRIEND_COLOR or TARGET_COLOR
+            else
+                if hl then hl:Destroy() end
+            end
+        end
+    end
+end
+
+Players.PlayerAdded:Connect(function(p)
+    p.CharacterAdded:Connect(function()
+        task.wait(1)
+        UpdateHighlights()
+    end)
+end)
+
+for _, p in ipairs(Players:GetPlayers()) do
+    p.CharacterAdded:Connect(function()
+        task.wait(1)
+        UpdateHighlights()
+    end)
+end
+
+-- ────────────────────────────────────────────────
+--  TARGET SEARCH
+-- ────────────────────────────────────────────────
+local function GetNearestEnemy()
+    local myChar = LocalPlayer.Character
+    if not myChar then return nil end
+    local myHRP = myChar:FindFirstChild("HumanoidRootPart")
+    if not myHRP then return nil end
+
+    local friends = GetFriends()
+    local targets = GetTargets()
+    local hasTargetsFilter = (#targets > 0)
+
+    local best, bestDist = nil, math.huge
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character then
+            if MatchesList(p, friends) then continue end
+            if hasTargetsFilter and not MatchesList(p, targets) then continue end
+            
+            local hum = p.Character:FindFirstChildOfClass("Humanoid")
+            local hrp = p.Character:FindFirstChild("HumanoidRootPart")
+            if hum and hum.Health > 0 and hrp then
+                local d = (myHRP.Position - hrp.Position).Magnitude
+                if d < bestDist then
+                    bestDist = d
+                    best = p
+                end
+            end
+        end
+    end
+    return best
+end
+
+local function GetBotTarget()
+    local query = Normalize(Features.Bot)
+    if query == "" then return nil end
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer and p.Character then
+            local name = Normalize(p.Name)
+            local disp = Normalize(p.DisplayName)
+            if name:find(query, 1, true) or disp:find(query, 1, true) then
+                return p
+            end
+        end
+    end
+    return nil
+end
+
+-- ────────────────────────────────────────────────
+--  ARC ANTI-RAGDOLL SYSTEM (Original Architecture)
+-- ────────────────────────────────────────────────
+local arc_targetCFrame = CFrame.new(-502.844818, 10.1868954, -65.4427567, 0.560596228, 2.67291544e-09, -0.828089297, -2.95736768e-08, 1, -1.67928462e-08, 0.828089297, 3.39036497e-08, 0.560596228)
+local arc_safeCFrame   = arc_targetCFrame + Vector3.new(0, 1, 0)
+local ARC_DEFAULT_DELAY = 0.1
+local ARC_GRAB_DELAY    = 3.5
+
+local arc_connection        = nil
+local arc_platStandConn     = nil
+local arc_originalCFrame    = nil
+local arc_hasCleanedThisRag = false
+local arc_returnTask        = nil
+local arc_inReturnWindow    = false
+local arc_wasGrabbed        = false
+local arc_platform          = nil
+local arc_platformStandConn = nil
+
+local function arc_resetState()
+    arc_originalCFrame    = nil
+    arc_returnTask        = nil
+    arc_hasCleanedThisRag = false
+    arc_inReturnWindow    = false
+    arc_wasGrabbed        = false
+end
+
+local function arc_removePlatform()
+    if arc_platformStandConn then arc_platformStandConn:Disconnect() arc_platformStandConn = nil end
+    if arc_platform then pcall(function() arc_platform:Destroy() end) arc_platform = nil end
+end
+
+local function arc_spawnPlatform(position)
+    arc_removePlatform()
+    local W, H, D, T = 16, 10, 16, 1
+    local floorY  = position.Y - 3.5
+    local floorCY = floorY - T/2
+    local ceilCY  = floorY + H + T/2
+    local innerCY = floorY + H/2
+
+    local model = Instance.new("Model")
+    model.Name  = "ARC_SafeBox"
+    model.Parent = workspace
+    arc_platform = model
+
+    local function makePart(size, cf)
+        local p = Instance.new("Part")
+        p.Size = size p.CFrame = cf p.Anchored = true p.CanCollide = true
+        p.Locked = true p.Material = Enum.Material.SmoothPlastic
+        p.BrickColor = BrickColor.new("Medium stone grey") p.Transparency = 0.4
+        p.Parent = model
+        return p
+    end
+
+    local cx, cz = position.X, position.Z
+    makePart(Vector3.new(W,T,D), CFrame.new(cx, floorCY, cz))
+    makePart(Vector3.new(W,T,D), CFrame.new(cx, ceilCY, cz))
+    makePart(Vector3.new(W,H+T*2,T), CFrame.new(cx, innerCY, cz+D/2+T/2))
+    makePart(Vector3.new(W,H+T*2,T), CFrame.new(cx, innerCY, cz-D/2-T/2))
+    makePart(Vector3.new(T,H+T*2,D), CFrame.new(cx-W/2-T/2, innerCY, cz))
+    makePart(Vector3.new(T,H+T*2,D), CFrame.new(cx+W/2+T/2, innerCY, cz))
+
+    local topY = floorY
+    arc_platformStandConn = RunService.Heartbeat:Connect(function()
+        if not arc_platform or not arc_platform.Parent then arc_removePlatform() return end
+        local char = LocalPlayer.Character
+        local hrp = char and char:FindFirstChild("HumanoidRootPart")
+        if hrp and hrp.Parent and hrp.Position.Y < topY then
+            hrp.CFrame = CFrame.new(cx, topY + 3.5, cz)
+            hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+        end
+    end)
+end
+
+local function arc_forceEndRagdoll(char)
+    if not char then return end
+    local hum = char:FindFirstChildOfClass("Humanoid")
+    if hum then
+        for _, st in ipairs({Enum.HumanoidStateType.Ragdoll, Enum.HumanoidStateType.Physics, Enum.HumanoidStateType.FallingDown, Enum.HumanoidStateType.PlatformStanding}) do
+            pcall(function() hum:SetStateEnabled(st, false) end)
+        end
+        hum.PlatformStand = false
+        hum:ChangeState(Enum.HumanoidStateType.GettingUp)
+    end
+    for _, n in ipairs({"RagdollJoints", "NoCollisions", "Local Ragdoll"}) do
+        local obj = char:FindFirstChild(n)
+        if obj then obj:Destroy() end
+    end
+    for _, obj in ipairs(char:GetDescendants()) do
+        if obj:IsA("Motor6D") then
+            obj.Enabled = true
+        elseif (obj:IsA("BaseConstraint") or obj:IsA("Attachment")) and obj.Name:lower():find("ragdoll") then
+            obj:Destroy()
+        end
+    end
+end
+
+local function arc_onCharacter(char)
+    local hrp = char:WaitForChild("HumanoidRootPart", 10)
+    local hum = char:WaitForChild("Humanoid", 10)
+    if not hrp or not hum then return end
+    if arc_connection then arc_connection:Disconnect() arc_connection = nil end
+    if arc_platStandConn then arc_platStandConn:Disconnect() arc_platStandConn = nil end
+    arc_resetState()
+    if arc_returnTask then task.cancel(arc_returnTask) arc_returnTask = nil end
+    task.wait(2.5)
+    if not Features.AntiRag then return end
+
+    arc_platStandConn = hum:GetPropertyChangedSignal("PlatformStand"):Connect(function()
+        if not Features.AntiRag or arc_inReturnWindow then return end
+        if hum.PlatformStand then 
+            arc_wasGrabbed = true 
+            if not arc_originalCFrame then arc_originalCFrame = hrp.CFrame end
+        end
+    end)
+
+    arc_connection = RunService.Heartbeat:Connect(function()
+        if not Features.AntiRag or not char.Parent or not hrp.Parent then
+            if arc_connection then arc_connection:Disconnect() arc_connection = nil end
+            return
+        end
+        if arc_inReturnWindow then return end
+        
+        local isRagdolled = (hum:GetState() == Enum.HumanoidStateType.Physics)
+        
+        if isRagdolled then
+            if not arc_originalCFrame then arc_originalCFrame = hrp.CFrame end
+            
+            if arc_wasGrabbed then
+                if not arc_returnTask then
+                    arc_inReturnWindow = true
+                    local savedCFrame = arc_originalCFrame
+                    local safePos = arc_safeCFrame.Position
+                    
+                    -- Teleport to safe spot and break ragdoll state
+                    arc_spawnPlatform(safePos)
+                    hrp.CFrame = CFrame.new(safePos.X, safePos.Y, safePos.Z)
+                    hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+                    arc_forceEndRagdoll(char)
+                    
+                    arc_returnTask = task.delay(ARC_GRAB_DELAY, function()
+                        arc_removePlatform()
+                        if hrp and hrp.Parent and savedCFrame then
+                            hrp.CFrame = savedCFrame
+                            -- Clean up ragdoll state again upon teleporting back
+                            arc_forceEndRagdoll(char)
+                            task.delay(0.05, function()
+                                if hrp and hrp.Parent then 
+                                    hrp.AssemblyLinearVelocity = Vector3.new(0, -1, 0) 
+                                end
+                            end)
+                        end
+                        arc_resetState()
+                    end)
+                end
+            else
+                hrp.CFrame = arc_safeCFrame
+                if not arc_hasCleanedThisRagdoll then
+                    arc_forceEndRagdoll(char)
+                    arc_hasCleanedThisRagdoll = true
+                end
+            end
+        else
+            if not arc_wasGrabbed and arc_originalCFrame and not arc_returnTask then
+                arc_inReturnWindow = true
+                local savedCFrame = arc_originalCFrame
+                arc_returnTask = task.delay(ARC_DEFAULT_DELAY, function()
+                    if hrp and hrp.Parent and savedCFrame then
+                        hrp.CFrame = savedCFrame
+                        arc_forceEndRagdoll(char)
+                        task.delay(0.05, function()
+                            if hrp and hrp.Parent then hrp.AssemblyLinearVelocity = Vector3.new(0, -1, 0) end
+                        end)
+                    end
+                    arc_resetState()
+                end)
+            end
+            arc_hasCleanedThisRagdoll = false
+        end
+    end)
+end
+
+-- ────────────────────────────────────────────────
+--  DEATH TP LOGIC
+-- ────────────────────────────────────────────────
+local lastDeathPos = nil
+local function SetupDeathTP(char)
+    local hum = char:WaitForChild("Humanoid", 10)
+    local hrp = char:WaitForChild("HumanoidRootPart", 10)
+    if not hum or not hrp then return end
+    
+    hum.Died:Connect(function()
+        if Features.DeathTP then
+            lastDeathPos = hrp.CFrame
+        end
+    end)
+end
+
+LocalPlayer.CharacterAdded:Connect(function(char)
+    task.spawn(SetupDeathTP, char)
+    task.spawn(arc_onCharacter, char)
+    
+    if Features.DeathTP and lastDeathPos then
+        task.wait(0.4)
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            hrp.CFrame = lastDeathPos
+        end
+    end
+end)
+
+-- ────────────────────────────────────────────────
+--  ANTI-VOID WATCHDOG
+-- ────────────────────────────────────────────────
+local lastSafeCFrame = nil
+RunService.Heartbeat:Connect(function()
+    if not Features.AntiVoid then return end
+    local char = LocalPlayer.Character
+    if not char then return end
+    local hrp = char:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    if hrp.Position.Y > -20 then
+        lastSafeCFrame = hrp.CFrame
+    else
+        if lastSafeCFrame then
+            hrp.CFrame = lastSafeCFrame
+            hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+        end
+    end
+end)
+
+-- ────────────────────────────────────────────────
+--  MAIN COMBAT & BOT LOOPS
+-- ────────────────────────────────────────────────
+local orbitAngle = 0
+
+RunService.Heartbeat:Connect(function(dt)
+    -- Rainbow Hue Shift
+    rainbowPhase = (rainbowPhase + dt * 0.4) % 1
+
+    local myChar = LocalPlayer.Character
+    if not myChar then return end
+    local myHum = myChar:FindFirstChildOfClass("Humanoid")
+    local myHRP = myChar:FindFirstChild("HumanoidRootPart")
+
+    -- No Slowdown
+    if Features.NoSlowdown and myHum then
+        myHum.WalkSpeed = 16
+    end
+
+    -- KillAura
+    if Features.KillAura and myHum and myHum.Health > 0 then
+        local target = GetNearestEnemy()
+        if target and target.Character then
+            local tHum = target.Character:FindFirstChildOfClass("Humanoid")
+            if tHum then
+                pcall(function()
+                    ReplicatedStorage.Packages.Knit.Services.CombatService.RF.Hit:InvokeServer(tHum)
+                end)
+            end
+        end
+    end
+
+    -- AutoBlock
+    if Features.AutoBlock and myHum and myHum.Health > 0 then
+        pcall(function()
+            ReplicatedStorage.Packages.Knit.Services.CombatService.RF.Block:InvokeServer(true)
+        end)
+    end
+
+    -- GrabSpam
+    if Features.GrabSpam and myHum and myHum.Health > 0 then
+        pcall(function()
+            ReplicatedStorage.Packages.Knit.Services.CombatService.RF.Grab:InvokeServer()
+        end)
+    end
+
+    -- Bot Follow / Orbit Logic
+    if myHRP and not arc_inReturnWindow then
+        local bTarget = GetBotTarget()
+        if bTarget and bTarget.Character then
+            local bHRP = bTarget.Character:FindFirstChild("HumanoidRootPart")
+            if bHRP then
+                if Features.Orbit then
+                    orbitAngle = (orbitAngle + dt * 3) % (math.pi * 2)
+                    local offset = Vector3.new(math.cos(orbitAngle) * 8, 0, math.sin(orbitAngle) * 8)
+                    myHRP.CFrame = CFrame.new(bHRP.Position + offset, bHRP.Position)
+                else
+                    myHRP.CFrame = bHRP.CFrame * CFrame.new(0, 0, 3)
+                end
+            end
+        end
+    end
+end)
+
+-- Hidden Logic Connection
+RunService.Stepped:Connect(function()
+    if Features.Hidden then
+        local char = LocalPlayer.Character
+        if char then
+            for _, p in ipairs(char:GetDescendants()) do
+                if p:IsA("BasePart") then
+                    p.CanCollide = false
+                end
+            end
+        end
+    end
+end)
+
+-- ────────────────────────────────────────────────
+--  UI CONSTRUCT (Clean Dark Glass Theme)
+-- ────────────────────────────────────────────────
+local GuiService = game:GetService("GuiService")
+local CoreGui    = game:GetService("CoreGui")
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "RB_CombatSuite_V2"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+pcall(function()
+    if gethui then
+        ScreenGui.Parent = gethui()
+    else
+        ScreenGui.Parent = CoreGui
+    end
+end)
+if not ScreenGui.Parent then ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui") end
+
+-- Trigger Circle
+local Trigger = Instance.new("TextButton")
+Trigger.Name = "Trigger"
+Trigger.Size = UDim2.new(0, 42, 0, 42)
+Trigger.Position = UDim2.new(0, 20, 0.5, -21)
+Trigger.BackgroundColor3 = Color3.fromRGB(15, 15, 20)
+Trigger.BorderSizePixel = 0
+Trigger.Text = "+"
+Trigger.TextColor3 = Color3.new(1, 1, 1)
+Trigger.Font = Enum.Font.GothamBold
+Trigger.TextSize = 22
+Trigger.Active = true
+Trigger.Draggable = true
+Trigger.Parent = ScreenGui
+
+local trigCorner = Instance.new("UICorner")
+trigCorner.CornerRadius = UDim.new(1, 0)
+trigCorner.Parent = Trigger
+
+local trigStroke = Instance.new("UIStroke")
+trigStroke.Thickness = 2
+trigStroke.Color = Color3.fromRGB(255, 255, 255)
+trigStroke.Parent = Trigger
+
+-- Main Window
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 360, 0, 480)
+MainFrame.Position = UDim2.new(0.5, -180, 0.5, -240)
+MainFrame.BackgroundColor3 = Color3.fromRGB(12, 12, 16)
+MainFrame.BorderSizePixel = 0
+MainFrame.ClipsDescendants = true
+MainFrame.Parent = ScreenGui
+
+local mfCorner = Instance.new("UICorner")
+mfCorner.CornerRadius = UDim.new(0, 10)
+mfCorner.Parent = MainFrame
+
+local mfStroke = Instance.new("UIStroke")
+mfStroke.Thickness = 1.5
+mfStroke.Color = Color3.fromRGB(255, 255, 255)
+mfStroke.Parent = MainFrame
+
+-- Header
+local Header = Instance.new("Frame")
+Header.Size = UDim2.new(1, 0, 0, 40)
+Header.BackgroundColor3 = Color3.fromRGB(18, 18, 24)
+Header.BorderSizePixel = 0
+Header.Parent = MainFrame
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -20, 1, 0)
+Title.Position = UDim2.new(0, 15, 0, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "RB COMBAT SUITE"
+Title.TextColor3 = Color3.new(1, 1, 1)
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 14
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = Header
+
+-- Drag Logic for MainFrame
+do
+    local dragging, dragInput, dragStart, startPos
+    Header.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = MainFrame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then dragging = false end
+            end)
+        end
+    end)
+    Header.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            MainFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+end
+
+-- Scroll Container
+local Scroll = Instance.new("ScrollingFrame")
+Scroll.Size = UDim2.new(1, -20, 1, -50)
+Scroll.Position = UDim2.new(0, 10, 0, 45)
+Scroll.BackgroundTransparency = 1
+Scroll.BorderSizePixel = 0
+Scroll.ScrollBarThickness = 3
+Scroll.ScrollBarImageColor3 = Color3.fromRGB(80, 80, 100)
+Scroll.CanvasSize = UDim2.new(0, 0, 0, 0)
+Scroll.Parent = MainFrame
+
+local UIList = Instance.new("UIListLayout")
+UIList.SortOrder = Enum.SortOrder.LayoutOrder
+UIList.Padding = UDim.new(0, 6)
+UIList.Parent = Scroll
+
+UIList:GetPropertyChangedSignal("AbsoluteContentSize"):Connect(function()
+    Scroll.CanvasSize = UDim2.new(0, 0, 0, UIList.AbsoluteContentSize.Y + 10)
+end)
+
+-- Keep elements synced with Rainbow Accent
+RunService.RenderStepped:Connect(function()
+    local acc = getAccent()
+    trigStroke.Color = acc
+    mfStroke.Color = acc
+    if Features.RainbowName then
+        Title.TextColor3 = acc
+    else
+        Title.TextColor3 = Color3.new(1, 1, 1)
+    end
+end)
+
+-- ────────────────────────────────────────────────
+--  UI BUILDER HELPERS
+-- ────────────────────────────────────────────────
+local indRefs = {}
+local keybindButtons = {}
+local bindingFor = nil
+
+local function CreateToggle(name, layoutOrder)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, 0, 0, 34)
+    frame.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
+    frame.BorderSizePixel = 0
+    frame.LayoutOrder = layoutOrder
+    frame.Parent = Scroll
+
+    local fCorner = Instance.new("UICorner")
+    fCorner.CornerRadius = UDim.new(0, 6)
+    fCorner.Parent = frame
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(0.5, 0, 1, 0)
+    label.Position = UDim2.new(0, 10, 0, 0)
+    label.BackgroundTransparency = 1
+    label.Text = name
+    label.TextColor3 = Color3.fromRGB(200, 200, 220)
+    label.Font = Enum.Font.GothamSemibold
+    label.TextSize = 12
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = frame
+
+    local ind = Instance.new("Frame")
+    ind.Size = UDim2.new(0, 12, 0, 12)
+    ind.Position = UDim2.new(1, -22, 0.5, -6)
+    ind.BackgroundColor3 = Features[name] and Color3.fromRGB(80, 220, 120) or Color3.fromRGB(50, 50, 65)
+    ind.BorderSizePixel = 0
+    ind.Parent = frame
+
+    local iCorner = Instance.new("UICorner")
+    iCorner.CornerRadius = UDim.new(1, 0)
+    iCorner.Parent = ind
+
+    indRefs[name] = ind
+
+    -- Keybind Button
+    local bindBtn = Instance.new("TextButton")
+    bindBtn.Size = UDim2.new(0, 50, 0, 20)
+    bindBtn.Position = UDim2.new(1, -80, 0.5, -10)
+    bindBtn.BackgroundColor3 = Color3.fromRGB(30, 30, 42)
+    bindBtn.BorderSizePixel = 0
+    bindBtn.Text = Keybinds[name] and tostring(Keybinds[name]):gsub("Enum.KeyCode.", "") or "BIND"
+    bindBtn.TextColor3 = Color3.fromRGB(160, 160, 180)
+    bindBtn.Font = Enum.Font.Gotham
+    bindBtn.TextSize = 9
+    bindBtn.Parent = frame
+
+    local bCorner = Instance.new("UICorner")
+    bCorner.CornerRadius = UDim.new(0, 4)
+    bCorner.Parent = bindBtn
+
+    keybindButtons[name] = { button = bindBtn }
+
+    bindBtn.MouseButton1Click:Connect(function()
+        bindingFor = name
+        bindBtn.Text = "..."
+        bindBtn.TextColor3 = Color3.fromRGB(255, 220, 100)
+    end)
+
+    local clickArea = Instance.new("TextButton")
+    clickArea.Size = UDim2.new(1, -85, 1, 0)
+    clickArea.BackgroundTransparency = 1
+    clickArea.Text = ""
+    clickArea.Parent = frame
+
+    return frame, clickArea, ind
+end
+
+local function ToggleFeature(name, ind)
+    Features[name] = not Features[name]
+    ind.BackgroundColor3 = Features[name] and Color3.fromRGB(80, 220, 120) or Color3.fromRGB(50, 50, 65)
+    
+    if name == "AntiRag" then
+        if LocalPlayer.Character then task.spawn(arc_onCharacter, LocalPlayer.Character) end
+    elseif name == "Friends" or name == "Targets" then
+        UpdateHighlights()
+    end
+    
+    SaveConfig()
+end
+
+local function CreateTextBox(name, placeholder, layoutOrder, onChange)
+    local frame = Instance.new("Frame")
+    frame.Size = UDim2.new(1, 0, 0, 42)
+    frame.BackgroundColor3 = Color3.fromRGB(22, 22, 30)
+    frame.BorderSizePixel = 0
+    frame.LayoutOrder = layoutOrder
+    frame.Parent = Scroll
+
+    local fCorner = Instance.new("UICorner")
+    fCorner.CornerRadius = UDim.new(0, 6)
+    fCorner.Parent = frame
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, -20, 0, 16)
+    label.Position = UDim2.new(0, 10, 0, 4)
+    label.BackgroundTransparency = 1
+    label.Text = name
+    label.TextColor3 = Color3.fromRGB(150, 150, 170)
+    label.Font = Enum.Font.GothamSemibold
+    label.TextSize = 10
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = frame
+
+    local box = Instance.new("TextBox")
+    box.Size = UDim2.new(1, -20, 0, 16)
+    box.Position = UDim2.new(0, 10, 0, 20)
+    box.BackgroundTransparency = 1
+    box.Text = Features[name] or ""
+    box.PlaceholderText = placeholder
+    box.TextColor3 = Color3.fromRGB(220, 220, 240)
+    box.PlaceholderColor3 = Color3.fromRGB(80, 80, 100)
+    box.Font = Enum.Font.Gotham
+    box.TextSize = 11
+    box.TextXAlignment = Enum.TextXAlignment.Left
+    box.ClearTextOnFocus = false
+    box.Parent = frame
+
+    box:GetPropertyChangedSignal("Text"):Connect(function()
+        Features[name] = box.Text
+        if onChange then onChange(box.Text) end
+        SaveConfig()
+    end)
+end
+
+local function FireReset(ind)
+    ind.BackgroundColor3 = Color3.fromRGB(255, 100, 100)
+    local char = LocalPlayer.Character
+    if char then
+        local hum = char:FindFirstChildOfClass("Humanoid")
+        if hum then hum.Health = 0 end
+    end
+    task.delay(0.3, function()
+        ind.BackgroundColor3 = Color3.fromRGB(50, 50, 65)
+    end)
+end
+
+-- ────────────────────────────────────────────────
+--  GENERATE TOGGLES
+-- ────────────────────────────────────────────────
+local toggleOrder = {
+    "KillAura",
+    "- KillAura Anims",
+    "AutoBlock",
+    "AntiRag",
+    "DeathTP",
+    "GrabSpam",
+    "Hidden",
+    "- Extra Clip",
+    "RainbowName",
+    "AntiVoid",
+    "NoSlowdown",
+    "Orbit"
+}
+
+for idx, name in ipairs(toggleOrder) do
+    local f, click, ind = CreateToggle(name, idx)
+    click.MouseButton1Click:Connect(function()
+        ToggleFeature(name, ind)
+    end)
+end
+
+-- Reset Button
+local rFrame, rClick, rInd = CreateToggle("Reset", #toggleOrder + 1)
+rClick.MouseButton1Click:Connect(function()
+    FireReset(rInd)
+end)
+
+-- Inputs
+CreateTextBox("Friends", "display or username (space separated)", #toggleOrder + 2, function()
+    UpdateHighlights()
+end)
+
+CreateTextBox("Targets", "display or username (space separated)", #toggleOrder + 3, function()
+    UpdateHighlights()
+end)
+
+CreateTextBox("Bot", "target user for follow/orbit", #toggleOrder + 4)
+
+-- Hide Window Trigger
+Trigger.MouseButton1Click:Connect(function()
+    MainFrame.Visible = not MainFrame.Visible
+    TweenService:Create(Trigger, TweenInfo.new(0.3), { Rotation = MainFrame.Visible and 45 or 0 }):Play()
+end)
+
+-- ────────────────────────────────────────────────
+--  GLOBAL KEYBIND LISTENER
+-- ────────────────────────────────────────────────
+UserInputService.InputBegan:Connect(function(input, gameProcessed)
+    if gameProcessed then return end
+    if input.KeyCode == Enum.KeyCode.LeftControl then
+        MainFrame.Visible = not MainFrame.Visible
+        TweenService:Create(Trigger, TweenInfo.new(0.3), { Rotation = MainFrame.Visible and 45 or 0 }):Play()
+        return
+    end
+
+    if bindingFor then
+        local name = bindingFor
+        bindingFor = nil
+        if input.KeyCode ~= Enum.KeyCode.Escape then
+            Keybinds[name] = input.KeyCode
+            keybindButtons[name].button.Text = tostring(input.KeyCode):gsub("Enum.KeyCode.", "")
+        else
+            keybindButtons[name].button.Text = Keybinds[name] and tostring(Keybinds[name]):gsub("Enum.KeyCode.", "") or "BIND"
+        end
+        keybindButtons[name].button.TextColor3 = Color3.new(1, 1, 1)
+        SaveConfig()
+        return
+    end
+
+    for name, key in pairs(Keybinds) do
+        if key and input.KeyCode == key then
+            if name == "Reset" then
+                FireReset(indRefs[name])
+            else
+                ToggleFeature(name, indRefs[name])
+            end
+        end
+    end
+end)
+
+-- ────────────────────────────────────────────────
+--  INIT
+-- ────────────────────────────────────────────────
+if LocalPlayer.Character then
+    task.spawn(SetupDeathTP, LocalPlayer.Character)
+    task.spawn(arc_onCharacter, LocalPlayer.Character)
+end
+
+print("RB FULL SYSTEM LOADED - HIDDEN + EXTRA CLIP + RAINBOW NAME + REVERTED RAG + DEATH TP + BOT/ORBIT")
