@@ -123,6 +123,33 @@ local function refreshTags()
     end
 end
 
+local function getNearest()
+    local nearest, shortest = nil, math.huge
+    local myRoot = me.Character and me.Character:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return end
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= me and p.Character then
+            if isInList(p, friendsList) then continue end
+            if #targetsList > 0 and not isInList(p, targetsList) then continue end
+            local root = p.Character:FindFirstChild("HumanoidRootPart")
+            if root then
+                local dist = (myRoot.Position - root.Position).Magnitude
+                if dist < shortest then nearest, shortest = p, dist end
+            end
+        end
+    end
+    return nearest
+end
+
+local function hit()
+    local target = getNearest()
+    if target and target.Character then
+        for i = 1, hitMultiplier do
+            game:GetService("ReplicatedStorage").Packages.Knit.Services.CombatService.RF.Hit:InvokeServer(target.Character.Humanoid)
+        end
+    end
+end
+
 local _arc_targetCFrame = CFrame.new(-502.844818, 10.1868954, -65.4427567, 0.560596228, 2.67291544e-09, -0.828089297, -2.95736768e-08, 1, -1.67928462e-08, 0.828089297, 3.39036497e-08, 0.560596228)
 local _arc_safeCFrame = _arc_targetCFrame + Vector3.new(0, 1, 0)
 local ArcDefaultDelay = 0.1
@@ -136,12 +163,40 @@ local _arc_wasGrabbed = false
 local _arc_platform = nil
 local _arc_platformStandConn = nil
 
+local _badZoneCFrame = CFrame.new(50.6816101, 3.70000315, 117.850357, -0.69541502, -2.31521002e-09, -0.71860832, 2.70699267e-08, 1, -2.94180325e-08, 0.71860832, -3.99104181e-08, -0.69541502)
+local _badZonePos = _badZoneCFrame.Position
+local _lastSafePos = nil
+local _badZoneConn = nil
+
 local function _arc_resetState()
     _arc_originalCFrame = nil
     _arc_returnTask = nil
     _arc_hasCleanedThisRagdoll = false
     _arc_inReturnWindow = false
     _arc_wasGrabbed = false
+end
+
+local function _startBadZoneWatch()
+    if _badZoneConn then return end
+    _badZoneConn = RS.Heartbeat:Connect(function()
+        if not antiGrabEnabled then return end
+        local hrp = me.Character and me.Character:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+        local dist = (hrp.Position - _badZonePos).Magnitude
+        if dist <= 10 then
+            if _lastSafePos then
+                hrp.CFrame = _lastSafePos
+                hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+                _arc_resetState()
+            end
+        else
+            _lastSafePos = hrp.CFrame
+        end
+    end)
+end
+
+local function _stopBadZoneWatch()
+    if _badZoneConn then _badZoneConn:Disconnect() _badZoneConn = nil end
 end
 
 local function _arc_removePlatform()
@@ -293,6 +348,19 @@ local function _arc_onCharacterAdded(char)
     end)
 end
 
+local function startARC()
+    local char = me.Character
+    if char then task.spawn(_arc_onCharacterAdded, char) end
+end
+
+local function stopARC()
+    if not AntiRagEnabled and not AntiGrabRagEnabled then
+        if _arc_connection then _arc_connection:Disconnect() _arc_connection = nil end
+        if _arc_platStandConn then _arc_platStandConn:Disconnect() _arc_platStandConn = nil end
+        _arc_removePlatform()
+    end
+end
+
 local function setupAntiGrab(char)
     local hum = char:WaitForChild("Humanoid", 10)
     local hrp = char:WaitForChild("HumanoidRootPart", 10)
@@ -320,6 +388,7 @@ local function setupDeathTp(char)
 end
 
 me.CharacterAdded:Connect(function(newChar)
+    _lastSafePos = nil
     task.spawn(_arc_onCharacterAdded, newChar)
     task.spawn(setupDeathTp, newChar)
     task.spawn(setupAntiGrab, newChar)
@@ -338,7 +407,7 @@ end
 local sg = Instance.new("ScreenGui", me.PlayerGui)
 sg.ResetOnSpawn = false
 
--- Top Notification Banner
+-- Top Notification Banner UI
 local notifBanner = Instance.new("Frame", sg)
 notifBanner.Size = UDim2.new(0, 360, 0, 32)
 notifBanner.Position = UDim2.new(0.5, -180, 0, -50)
@@ -407,7 +476,7 @@ local dragLbl = Instance.new("TextLabel", topZone)
 dragLbl.Size = UDim2.new(1,-8,1,0)
 dragLbl.Position = UDim2.new(0,8,0,0)
 dragLbl.BackgroundTransparency = 1
-dragLbl.Text = "angelicious !!"
+dragLbl.Text = ":: drag"
 dragLbl.TextColor3 = Color3.fromRGB(180,80,100)
 dragLbl.TextSize = 9
 dragLbl.Font = Enum.Font.GothamBold
@@ -545,6 +614,7 @@ local msgBox = makeTextBox(336, LX, 136, frame, "custom message")
 
 local RX = 152
 local RW = 140
+
 makeLabel("friends list", 20, RX, RW)
 local friendsBox = makeTextBox(35, RX, RW, frame, "user or display name")
 local friendHLBtn = makeBtn("friend tag: off", 60, frame, RX, RW)
@@ -582,14 +652,28 @@ local hitboxSizeBox = makeTextBox(356, RX + 72, 68, frame, "size (25)")
 local multiHitboxBtn = makeBtn("multi-hitbox: off", 382, frame, RX, RW)
 multiHitboxBtn.TextSize = 10
 
-friendsBox:GetPropertyChangedSignal("Text"):Connect(function() friendsList = parseList(friendsBox.Text) refreshTags() end)
-targetsBox:GetPropertyChangedSignal("Text"):Connect(function() targetsList = parseList(targetsBox.Text) refreshTags() end)
-followBox:GetPropertyChangedSignal("Text"):Connect(function() followTargetQuery = followBox.Text end)
+friendsBox:GetPropertyChangedSignal("Text"):Connect(function()
+    friendsList = parseList(friendsBox.Text)
+    refreshTags()
+end)
+
+targetsBox:GetPropertyChangedSignal("Text"):Connect(function()
+    targetsList = parseList(targetsBox.Text)
+    refreshTags()
+end)
+
+followBox:GetPropertyChangedSignal("Text"):Connect(function()
+    followTargetQuery = followBox.Text
+end)
 
 orbitBox:GetPropertyChangedSignal("Text"):Connect(function()
     local parts = parseList(orbitBox.Text)
-    if #parts >= 1 and tonumber(parts[1]) then orbitDistance = tonumber(parts[1]) end
-    if #parts >= 2 and tonumber(parts[2]) then orbitSpeed = tonumber(parts[2]) end
+    if #parts >= 1 and tonumber(parts[1]) then
+        orbitDistance = tonumber(parts[1])
+    end
+    if #parts >= 2 and tonumber(parts[2]) then
+        orbitSpeed = tonumber(parts[2])
+    end
 end)
 
 hitboxDistBox:GetPropertyChangedSignal("Text"):Connect(function()
@@ -788,10 +872,14 @@ end)
 
 local function toggleFeature(name)
     if name == "KillAura" then
-        running = false
-        actionBtn.Text = "kill aura: off"
-        actionBtn.BackgroundColor3 = Color3.fromRGB(255,255,255)
-        showNotification("Killaura doesn't work in this game at the moment")
+        running = not running
+        actionBtn.Text = running and "kill aura: on" or "kill aura: off"
+        actionBtn.BackgroundColor3 = running and Color3.fromRGB(210,210,210) or Color3.fromRGB(255,255,255)
+        if running then
+            conn = RS.Heartbeat:Connect(function() hit() end)
+        else
+            if conn then conn:Disconnect() conn = nil end
+        end
     elseif name == "AutoBlock" then
         blocking = not blocking
         blockBtn.Text = blocking and "auto block: on" or "auto block: off"
@@ -810,10 +898,12 @@ local function toggleFeature(name)
         AntiRagEnabled = not AntiRagEnabled
         arcBtn.Text = AntiRagEnabled and "anti ragdoll: on" or "anti ragdoll: off"
         arcBtn.BackgroundColor3 = AntiRagEnabled and Color3.fromRGB(210,210,210) or Color3.fromRGB(255,255,255)
+        if AntiRagEnabled then startARC() else stopARC() end
     elseif name == "AntiGrabRag" then
         AntiGrabRagEnabled = not AntiGrabRagEnabled
         arcBtn2.Text = AntiGrabRagEnabled and "anti grab rag: on" or "anti grab rag: off"
         arcBtn2.BackgroundColor3 = AntiGrabRagEnabled and Color3.fromRGB(210,210,210) or Color3.fromRGB(255,255,255)
+        if AntiGrabRagEnabled then startARC() else stopARC() end
     elseif name == "DeathTp" then
         deathTpEnabled = not deathTpEnabled
         deathBtn.Text = deathTpEnabled and "death tp: on" or "death tp: off"
@@ -825,7 +915,7 @@ local function toggleFeature(name)
         if noSlowEnabled then
             noSlowConn = RS.Heartbeat:Connect(function()
                 local hum = me.Character and me.Character:FindFirstChildOfClass("Humanoid")
-                if hum and hum.WalkSpeed < 16 then hum.WalkSpeed = 16 end
+                if hum then hum.WalkSpeed = 16 end
             end)
         else
             if noSlowConn then noSlowConn:Disconnect() noSlowConn = nil end
@@ -834,6 +924,7 @@ local function toggleFeature(name)
         antiGrabEnabled = not antiGrabEnabled
         antiGrabBtn.Text = antiGrabEnabled and "anti grab: on" or "anti grab: off"
         antiGrabBtn.BackgroundColor3 = antiGrabEnabled and Color3.fromRGB(210,210,210) or Color3.fromRGB(255,255,255)
+        if antiGrabEnabled then _startBadZoneWatch() else _stopBadZoneWatch() end
     elseif name == "AutoGrab" then
         grabbing = not grabbing
         grabBtn.Text = grabbing and "auto grab: on" or "auto grab: off"
@@ -850,6 +941,19 @@ local function toggleFeature(name)
         spamming = not spamming
         spamBtn.Text = spamming and "spam notify: on" or "spam notify: off"
         spamBtn.BackgroundColor3 = spamming and Color3.fromRGB(210,210,210) or Color3.fromRGB(255,255,255)
+        if spamming then
+            task.spawn(function()
+                while spamming do
+                    local msg = msgBox.Text ~= "" and msgBox.Text or "default"
+                    for _, player in ipairs(Players:GetPlayers()) do
+                        if player ~= me then
+                            game:GetService("ReplicatedStorage").RequestPrompt:FireServer(70932517024004, msg, player, 0, 3, 0, 0, 0, 0)
+                        end
+                    end
+                    task.wait(0.1)
+                end
+            end)
+        end
     end
 end
 
@@ -864,7 +968,7 @@ antiGrabBtn.MouseButton1Click:Connect(function() toggleFeature("AntiGrab") end)
 grabBtn.MouseButton1Click:Connect(function() toggleFeature("AutoGrab") end)
 spamBtn.MouseButton1Click:Connect(function() toggleFeature("SpamNotify") end)
 
--- Global Keybinding Listener Connection & Menu Toggle with Left Control
+-- Global Keybinding Listener Connection & Left Control Menu Toggle
 UIS.InputBegan:Connect(function(input, processed)
     if processed then return end
 
