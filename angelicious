@@ -22,7 +22,6 @@ local antiGrabDelay = 0.2
 local hitMultiplier = 1
 local followTargetQuery = ""
 
--- Hitbox Aura Settings
 local hitboxAuraEnabled = false
 local hitboxDistance = 28
 local hitboxSize = 25
@@ -36,7 +35,6 @@ local targetTagEnabled = false
 local tagConnections = {}
 local tagBillboards = {}
 
--- Keybinding Configuration Maps
 local Keybinds = {}
 local bindButtons = {}
 local actionButtons = {}
@@ -407,7 +405,6 @@ end
 local sg = Instance.new("ScreenGui", me.PlayerGui)
 sg.ResetOnSpawn = false
 
--- Top Notification Banner UI
 local notifBanner = Instance.new("Frame", sg)
 notifBanner.Size = UDim2.new(0, 360, 0, 32)
 notifBanner.Position = UDim2.new(0.5, -180, 0, -50)
@@ -476,7 +473,7 @@ local dragLbl = Instance.new("TextLabel", topZone)
 dragLbl.Size = UDim2.new(1,-8,1,0)
 dragLbl.Position = UDim2.new(0,8,0,0)
 dragLbl.BackgroundTransparency = 1
-dragLbl.Text = ":: drag"
+dragLbl.Text = "angelicious !"
 dragLbl.TextColor3 = Color3.fromRGB(180,80,100)
 dragLbl.TextSize = 9
 dragLbl.Font = Enum.Font.GothamBold
@@ -636,16 +633,31 @@ local followBox = makeTextBox(182, RX, RW, frame, "user or display name")
 local followBtn = makeBtn("follow: off", 208, frame, RX, RW)
 followBtn.TextSize = 10
 
--- Orbit Controls
 makeLabel("orbit player", 240, RX, RW)
 local orbitBox = makeTextBox(254, RX, RW, frame, "dist speed (e.g. 8 3)")
 local orbitBtn = makeBtn("orbit: off", 280, frame, RX, RW)
 orbitBtn.TextSize = 10
 
--- Hitbox Aura Controls
 makeLabel("hitbox aura", 312, RX, RW)
-local hitboxBtn = makeBtn("hitbox aura: off", 326, frame, RX, RW)
+local hitboxBtn = makeBtn("hitbox aura: off", 326, frame, RX, 96)
 hitboxBtn.TextSize = 10
+
+local hbBindBtn = Instance.new("TextButton", frame)
+hbBindBtn.Size = UDim2.new(0, 40, 0, 26)
+hbBindBtn.Position = UDim2.new(0, RX + 100, 0, 326)
+hbBindBtn.Text = "bind"
+hbBindBtn.BackgroundColor3 = Color3.fromRGB(240, 240, 240)
+hbBindBtn.TextColor3 = Color3.fromRGB(80, 80, 80)
+hbBindBtn.BorderSizePixel = 0
+hbBindBtn.Font = Enum.Font.Gotham
+hbBindBtn.TextSize = 9
+round(hbBindBtn, 6)
+bindButtons["HitboxAura"] = hbBindBtn
+
+hbBindBtn.MouseButton1Click:Connect(function()
+    bindingFor = "HitboxAura"
+    hbBindBtn.Text = "..."
+end)
 
 local hitboxDistBox = makeTextBox(356, RX, 68, frame, "dist (28)")
 local hitboxSizeBox = makeTextBox(356, RX + 72, 68, frame, "size (25)")
@@ -700,7 +712,6 @@ targetHLBtn.MouseButton1Click:Connect(function()
     refreshTags()
 end)
 
--- Dedicated Follow & Orbit Loop
 task.spawn(function()
     while true do
         local dt = task.wait()
@@ -730,7 +741,6 @@ task.spawn(function()
     end
 end)
 
--- Hitbox Reset Helper
 local function resetHitbox(player)
     if player and player.Character then
         local hrp = player.Character:FindFirstChild("HumanoidRootPart")
@@ -746,12 +756,11 @@ local function resetHitbox(player)
     end
 end
 
--- Hitbox Aura Loop with Pink & White Animation
-local animationTimer = 0
+local pinkWhiteHue = 0
 RS.RenderStepped:Connect(function(dt)
-    animationTimer = (animationTimer + dt * 2.5) % (math.pi * 2)
-    local alpha = (math.sin(animationTimer) + 1) / 2
-    local currentColor = Color3.fromRGB(255, 182, 193):Lerp(Color3.fromRGB(255, 255, 255), alpha)
+    pinkWhiteHue = (pinkWhiteHue + (dt * 0.5)) % 1
+    local lerpFactor = (math.sin(pinkWhiteHue * math.pi * 2) + 1) / 2
+    local currentColor = Color3.fromRGB(255, 182, 193):Lerp(Color3.fromRGB(255, 255, 255), lerpFactor)
 
     if not hitboxAuraEnabled then
         for p, _ in pairs(modifiedHitboxes) do
@@ -769,6 +778,8 @@ RS.RenderStepped:Connect(function(dt)
     if multiHitboxEnabled then
         for _, p in ipairs(Players:GetPlayers()) do
             if p ~= me and p.Character then
+                local hum = p.Character:FindFirstChildOfClass("Humanoid")
+                if not hum or hum.Health <= 0 then continue end
                 if isInList(p, friendsList) then continue end
                 if #targetsList > 0 and not isInList(p, targetsList) then continue end
 
@@ -779,7 +790,7 @@ RS.RenderStepped:Connect(function(dt)
                         activeThisFrame[p] = true
                         pcall(function()
                             root.Size = Vector3.new(hitboxSize, hitboxSize, hitboxSize)
-                            root.Transparency = 0.85
+                            root.Transparency = 0.95
                             root.Color = currentColor
                             root.Material = Enum.Material.Neon
                             root.CanCollide = false
@@ -793,6 +804,8 @@ RS.RenderStepped:Connect(function(dt)
         local nearest, shortest = nil, hitboxDistance
         for _, p in ipairs(Players:GetPlayers()) do
             if p ~= me and p.Character then
+                local hum = p.Character:FindFirstChildOfClass("Humanoid")
+                if not hum or hum.Health <= 0 then continue end
                 if isInList(p, friendsList) then continue end
                 if #targetsList > 0 and not isInList(p, targetsList) then continue end
 
@@ -813,7 +826,7 @@ RS.RenderStepped:Connect(function(dt)
                 activeThisFrame[nearest] = true
                 pcall(function()
                     root.Size = Vector3.new(hitboxSize, hitboxSize, hitboxSize)
-                    root.Transparency = 0.85
+                    root.Transparency = 0.95
                     root.Color = currentColor
                     root.Material = Enum.Material.Neon
                     root.CanCollide = false
@@ -885,14 +898,12 @@ local function toggleFeature(name)
         blockBtn.Text = blocking and "auto block: on" or "auto block: off"
         blockBtn.BackgroundColor3 = blocking and Color3.fromRGB(210,210,210) or Color3.fromRGB(255,255,255)
         if blocking then
-            game:GetService("ReplicatedStorage").Packages.Knit.Services.CombatService.RF.Block:InvokeServer(true)
-            blockConn = RS.Heartbeat:Connect(function()
-                task.wait(0.01)
-                if blocking then game:GetService("ReplicatedStorage").Packages.Knit.Services.CombatService.RF.Block:InvokeServer(true) end
+            task.spawn(function()
+                while blocking do
+                    game:GetService("ReplicatedStorage").Packages.Knit.Services.CombatService.RF.y:InvokeServer(true)
+                    task.wait()
+                end
             end)
-        else
-            if blockConn then blockConn:Disconnect() blockConn = nil end
-            game:GetService("ReplicatedStorage").Packages.Knit.Services.CombatService.RF.Block:InvokeServer(false)
         end
     elseif name == "AntiRagdoll" then
         AntiRagEnabled = not AntiRagEnabled
@@ -915,7 +926,7 @@ local function toggleFeature(name)
         if noSlowEnabled then
             noSlowConn = RS.Heartbeat:Connect(function()
                 local hum = me.Character and me.Character:FindFirstChildOfClass("Humanoid")
-                if hum then hum.WalkSpeed = 16 end
+                if hum and hum.WalkSpeed < 16 then hum.WalkSpeed = 16 end
             end)
         else
             if noSlowConn then noSlowConn:Disconnect() noSlowConn = nil end
@@ -933,7 +944,7 @@ local function toggleFeature(name)
             task.spawn(function()
                 while grabbing do
                     game:GetService("ReplicatedStorage").Packages.Knit.Services.CombatService.RF.Grab:InvokeServer()
-                    wait()
+                    task.wait()
                 end
             end)
         end
@@ -954,10 +965,13 @@ local function toggleFeature(name)
                 end
             end)
         end
+    elseif name == "HitboxAura" then
+        hitboxAuraEnabled = not hitboxAuraEnabled
+        hitboxBtn.Text = hitboxAuraEnabled and "hitbox aura: on" or "hitbox aura: off"
+        hitboxBtn.BackgroundColor3 = hitboxAuraEnabled and Color3.fromRGB(210,210,210) or Color3.fromRGB(255,255,255)
     end
 end
 
--- Dedicated Actions
 actionBtn.MouseButton1Click:Connect(function() toggleFeature("KillAura") end)
 blockBtn.MouseButton1Click:Connect(function() toggleFeature("AutoBlock") end)
 arcBtn.MouseButton1Click:Connect(function() toggleFeature("AntiRagdoll") end)
@@ -968,7 +982,6 @@ antiGrabBtn.MouseButton1Click:Connect(function() toggleFeature("AntiGrab") end)
 grabBtn.MouseButton1Click:Connect(function() toggleFeature("AutoGrab") end)
 spamBtn.MouseButton1Click:Connect(function() toggleFeature("SpamNotify") end)
 
--- Global Keybinding Listener Connection & Left Control Menu Toggle
 UIS.InputBegan:Connect(function(input, processed)
     if processed then return end
 
