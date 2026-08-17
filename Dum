@@ -1,0 +1,2186 @@
+-- hs_Version5.txt
+-- Full script with insta using anti-grab style heartbeat return after StopCarry
+
+local Players = game:GetService("Players")
+local localPlayer = Players.LocalPlayer
+
+-- Whitelist URL and Cache Buster
+local whitelistUrl = "https://raw.githubusercontent.com/protectedprojects/whitelisted/refs/heads/main/users"
+local cacheBusterUrl = whitelistUrl .. "?v=" .. math.random(100000, 999999)
+
+print("[Whitelist] Checking username...")
+print("[Whitelist] Running user (Username): " .. localPlayer.Name)
+
+local success, response = pcall(function()
+    return game:HttpGet(cacheBusterUrl)
+end)
+
+if not success or not response then
+    warn("[Whitelist] Failed to fetch whitelist data from GitHub.")
+    return
+end
+
+local isWhitelisted = false
+
+for rawUsername in response:gmatch("[^\r\n]+") do
+    local cleanUsername = rawUsername:match("^%s*(.-)%s*$")
+    if cleanUsername ~= "" then
+        if cleanUsername:lower() == localPlayer.Name:lower() then
+            isWhitelisted = true
+            break
+        end
+    end
+end
+
+if not isWhitelisted then
+    print("Not whitelisted")
+    
+    -- Create the Pink and White Not Whitelisted GUI Popup
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "WhitelistDeniedGui"
+    ScreenGui.Parent = game:GetService("CoreGui")
+    ScreenGui.IgnoreGuiInset = true
+
+    local MainFrame = Instance.new("Frame")
+    MainFrame.Name = "MainFrame"
+    MainFrame.Parent = ScreenGui
+    MainFrame.AnchorPoint = Vector2.new(0.5, 0.5)
+    MainFrame.BackgroundColor3 = Color3.fromRGB(255, 240, 245) -- Soft light pink background
+    MainFrame.BorderSizePixel = 0
+    MainFrame.Position = UDim2.new(0.5, 0, 0.5, 0)
+    MainFrame.Size = UDim2.new(0, 420, 0, 200)
+
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0, 12)
+    UICorner.Parent = MainFrame
+
+    local UIStroke = Instance.new("UIStroke")
+    UIStroke.Color = Color3.fromRGB(255, 182, 193) -- Vibrant pink border
+    UIStroke.Thickness = 2
+    UIStroke.Parent = MainFrame
+
+    local MessageLabel = Instance.new("TextLabel")
+    MessageLabel.Name = "MessageLabel"
+    MessageLabel.Parent = MainFrame
+    MessageLabel.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    MessageLabel.BackgroundTransparency = 1.00
+    MessageLabel.Position = UDim2.new(0, 20, 0, 25)
+    MessageLabel.Size = UDim2.new(1, -40, 0, 90)
+    MessageLabel.Font = Enum.Font.SourceSansBold
+    MessageLabel.Text = "This account isn't whitelisted, please message @trcs on discord so I can whitelist you <3 🧁"
+    MessageLabel.TextColor3 = Color3.fromRGB(90, 90, 90) -- Clean dark white/gray text for readability
+    MessageLabel.TextSize = 18
+    MessageLabel.TextWrapped = true
+
+    local ActionButton = Instance.new("TextButton")
+    ActionButton.Name = "ActionButton"
+    ActionButton.Parent = MainFrame
+    ActionButton.AnchorPoint = Vector2.new(0.5, 0)
+    ActionButton.BackgroundColor3 = Color3.fromRGB(255, 192, 203) -- Pink button color
+    ActionButton.BorderSizePixel = 0
+    ActionButton.Position = UDim2.new(0.5, 0, 0, 130)
+    ActionButton.Size = UDim2.new(0, 140, 0, 40)
+    ActionButton.Font = Enum.Font.SourceSansBold
+    ActionButton.TextColor3 = Color3.fromRGB(255, 255, 255) -- White text
+    ActionButton.TextSize = 16
+    ActionButton.AutoButtonColor = false
+
+    local ButtonCorner = Instance.new("UICorner")
+    ButtonCorner.CornerRadius = UDim.new(0, 8)
+    ButtonCorner.Parent = ActionButton
+
+    -- 7 Second Countdown Logic (keeping the color the same)
+    task.spawn(function()
+        for i = 7, 1, -1 do
+            ActionButton.Text = "Wait (" .. i .. "s)"
+            task.wait(1)
+        end
+        
+        ActionButton.Text = "Okay"
+        
+        local clicked = false
+        ActionButton.MouseButton1Click:Connect(function()
+            if not clicked then
+                clicked = true
+                ScreenGui:Destroy()
+            end
+        end)
+    end)
+
+    return -- Halts execution of the rest of the script entirely
+else
+    print("Whitelisted")
+end
+
+-- >>> PUT THE REST OF YOUR SCRIPT BELOW THIS LINE <<<
+print("Script should be running !!")
+
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local localPlayer = Players.LocalPlayer
+
+-- Create the ScreenGui
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "MeowNotificationGui"
+ScreenGui.Parent = game:GetService("CoreGui")
+ScreenGui.IgnoreGuiInset = true
+
+-- Create the black overlay with 0.5 transparency
+local BlackOverlay = Instance.new("Frame")
+BlackOverlay.Name = "BlackOverlay"
+BlackOverlay.Parent = ScreenGui
+BlackOverlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+BlackOverlay.BackgroundTransparency = 0.5
+BlackOverlay.BorderSizePixel = 0
+BlackOverlay.Size = UDim2.new(1, 0, 1, 0)
+
+-- Main Container Frame to hold individual letter labels side-by-side
+local Container = Instance.new("Frame")
+Container.Name = "TextContainer"
+Container.Parent = ScreenGui
+Container.AnchorPoint = Vector2.new(0.5, 0.5)
+Container.BackgroundTransparency = 1
+Container.Position = UDim2.new(0.5, 0, 0.45, 0)
+Container.Size = UDim2.new(0, 600, 0, 80)
+
+local UIListLayout = Instance.new("UIListLayout")
+UIListLayout.Parent = Container
+UIListLayout.FillDirection = Enum.FillDirection.Horizontal
+UIListLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+UIListLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+-- Define text string
+local textString = "angelicious !"
+local letterLabels = {}
+
+for i = 1, #textString do
+    local char = textString:sub(i, i)
+    
+    local letterLabel = Instance.new("TextLabel")
+    letterLabel.Name = "Char_" .. i
+    letterLabel.Parent = Container
+    letterLabel.BackgroundTransparency = 1
+    letterLabel.Size = UDim2.new(0, 22, 0, 80)
+    letterLabel.Font = Enum.Font.SourceSansBold
+    letterLabel.Text = char
+    letterLabel.TextColor3 = Color3.fromRGB(255, 182, 193) -- Default pink
+    letterLabel.TextSize = 42
+    letterLabel.TextTransparency = 1 -- Start transparent for fade-in
+    
+    table.insert(letterLabels, letterLabel)
+end
+
+-- Secondary label for the subtitle
+local SubtitleLabel = Instance.new("TextLabel")
+SubtitleLabel.Name = "SubtitleLabel"
+SubtitleLabel.Parent = ScreenGui
+SubtitleLabel.AnchorPoint = Vector2.new(0.5, 0.5)
+SubtitleLabel.BackgroundTransparency = 1
+SubtitleLabel.Position = UDim2.new(0.5, 0, 0.55, 0)
+SubtitleLabel.Size = UDim2.new(0, 400, 0, 40)
+SubtitleLabel.Font = Enum.Font.SourceSansBold
+SubtitleLabel.Text = "(left control to toggle <3)"
+SubtitleLabel.TextColor3 = Color3.fromRGB(255, 182, 193)
+SubtitleLabel.TextSize = 22
+SubtitleLabel.TextTransparency = 1
+
+-- Fade-in tweens (0.2 seconds)
+local fadeInInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local fadeOutInfo = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+
+local fadeOutOverlay = TweenService:Create(BlackOverlay, fadeOutInfo, {BackgroundTransparency = 1.00})
+
+task.spawn(function()
+    -- Step 1: Fade everything in together (0.2s)
+    for _, lbl in ipairs(letterLabels) do
+        TweenService:Create(lbl, fadeInInfo, {TextTransparency = 0}):Play()
+    end
+    TweenService:Create(SubtitleLabel, fadeInInfo, {TextTransparency = 0}):Play()
+    
+    task.wait(0.2)
+    
+    -- Step 2: Slower travel speed across letters (0.055s spacing),
+    local waveActive = true
+    task.spawn(function()
+        while waveActive do
+            for _, lbl in ipairs(letterLabels) do
+                if not waveActive then break end
+                
+                -- Flash to white
+                lbl.TextColor3 = Color3.fromRGB(255, 255, 255)
+                
+                -- Hold white for a little less time, then gracefully fade back to pink
+                task.spawn(function()
+                    task.wait(0.2)
+                    if waveActive then
+                        TweenService:Create(lbl, TweenInfo.new(0.3, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {TextColor3 = Color3.fromRGB(255, 182, 193)}):Play()
+                    end
+                end)
+                
+                task.wait(0.055)
+            end
+            task.wait(0.5)
+        end
+    end)
+    
+    -- Total display time before fading out
+    task.wait(2)
+    
+    -- Stop the wave effect loop
+    waveActive = false
+    
+    -- Step 3: Fade everything out (0.2s)
+    for _, lbl in ipairs(letterLabels) do
+        TweenService:Create(lbl, fadeOutInfo, {TextTransparency = 1}):Play()
+    end
+    TweenService:Create(SubtitleLabel, fadeOutInfo, {TextTransparency = 1}):Play()
+    fadeOutOverlay:Play()
+    
+    task.wait(0.2)
+    ScreenGui:Destroy()
+end)
+
+local Players = game:GetService("Players")
+local RS = game:GetService("RunService")
+local UIS = game:GetService("UserInputService")
+local VirtualInputManager = game:GetService("VirtualInputManager")
+local me = Players.LocalPlayer
+
+local running = false
+local blocking = false
+local grabbing = false
+local spamming = false
+local antiGrabEnabled = false
+local AntiRagEnabled = false
+local AntiGrabRagEnabled = false
+local deathTpEnabled = false
+local noSlowEnabled = false
+local followEnabled = false
+local orbitEnabled = false
+local orbitDistance = 8
+local orbitSpeed = 3
+local orbitAngle = 0
+local conn, blockConn, noSlowConn
+local lastDeathPos = nil
+local antiGrabDelay = 0.2
+local hitMultiplier = 1
+local followTargetQuery = ""
+
+local hitboxAuraEnabled = false
+local hitboxDistance = 28
+local hitboxSize = 25
+local multiHitboxEnabled = false
+local modifiedHitboxes = {}
+
+local healthbarEnabled = false
+local activeHealthbars = {}
+
+local tpwalkEnabled = false
+local tpwalkSpeed = 1
+local tpwalkingConn = nil
+
+local flyjumpEnabled = false
+local flyjumpConn = nil
+
+local autoclickerEnabled = false
+local autoclickerCps = 13
+local autoclickerConn = nil
+
+local promptDeleteEnabled = false
+local promptDeleteConn = nil
+local originalPromptDistances = {}
+
+-- Gym Ban feature state (added)
+local gymBanEnabled = false
+local gymBanCheck = false
+local gymUsersList = {}
+local gymDelay = 1
+local gymLength = 0    -- NEW: arg 2 (length)
+local gymHeight = 1000 -- arg 3 (height) (existing)
+local gymDistance = 0  -- NEW: arg 4 (distance)
+local gymCycleThread = nil
+
+local friendsList = {}
+local targetsList = {}
+local friendTagEnabled = false
+local targetTagEnabled = false
+local tagConnections = {}
+local tagBillboards = {}
+
+local Keybinds = {}
+local bindButtons = {}
+local actionButtons = {}
+local bindingFor = nil
+
+local PINK_COLOR = Color3.fromRGB(255, 182, 193)
+local WHITE_COLOR = Color3.fromRGB(255, 255, 255)
+
+local currentThemeColor = Color3.fromRGB(255, 182, 193)
+
+local function normalizeName(name)
+    return name:lower():gsub("%s+", "")
+end
+
+local function playerMatchesQuery(player, query)
+    local q = normalizeName(query)
+    if q == "" then return false end
+    return normalizeName(player.DisplayName):find(q, 1, true) ~= nil
+        or normalizeName(player.Name):find(q, 1, true) ~= nil
+end
+
+local function isInList(player, list)
+    for _, query in ipairs(list) do
+        if playerMatchesQuery(player, query) then return true end
+    end
+    return false
+end
+
+local function parseList(text)
+    local result = {}
+    for word in text:gmatch("%S+") do table.insert(result, word) end
+    return result
+end
+
+local function removeTagFor(player)
+    if tagBillboards[player.Name] then
+        pcall(function() tagBillboards[player.Name]:Destroy() end)
+        tagBillboards[player.Name] = nil
+    end
+    if tagConnections[player.Name] then
+        tagConnections[player.Name]:Disconnect()
+        tagConnections[player.Name] = nil
+    end
+end
+
+local function applyTagTo(player, label, color)
+    removeTagFor(player)
+    local function makeTag(char)
+        if not char then return end
+        local hrp = char:FindFirstChild("HumanoidRootPart")
+        if not hrp then hrp = char:WaitForChild("HumanoidRootPart", 5) end
+        if not hrp then return end
+        local old = hrp:FindFirstChild("PlayerTag")
+        if old then old:Destroy() end
+        local bb = Instance.new("BillboardGui")
+        bb.Name = "PlayerTag"
+        bb.Size = UDim2.new(0, 120, 0, 40)
+        bb.StudsOffset = Vector3.new(0, 4.5, 0)
+        bb.AlwaysOnTop = true
+        bb.Adornee = hrp
+        bb.Parent = hrp
+        local lbl = Instance.new("TextLabel", bb)
+        lbl.Size = UDim2.new(1, 0, 1, 0)
+        lbl.BackgroundTransparency = 1
+        lbl.Text = label
+        lbl.TextColor3 = color
+        lbl.Font = Enum.Font.GothamBold
+        lbl.TextSize = 28
+        lbl.TextStrokeTransparency = 0
+        lbl.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+        tagBillboards[player.Name] = bb
+    end
+    if player.Character then makeTag(player.Character) end
+    tagConnections[player.Name] = player.CharacterAdded:Connect(function(char)
+        task.wait(0.5)
+        makeTag(char)
+    end)
+end
+
+local function refreshTags()
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player == me then continue end
+        removeTagFor(player)
+        if friendTagEnabled and isInList(player, friendsList) then
+            applyTagTo(player, "bestie", currentThemeColor)
+        elseif targetTagEnabled and isInList(player, targetsList) then
+            applyTagTo(player, "baddie", WHITE_COLOR)
+        end
+    end
+end
+
+local function removeHealthbar(player)
+    if activeHealthbars[player.Name] then
+        pcall(function() activeHealthbars[player.Name]:Destroy() end)
+        activeHealthbars[player.Name] = nil
+    end
+end
+
+local function createHealthbarForPlayer(player)
+    if player == me then return end
+    removeHealthbar(player)
+    if not healthbarEnabled then return end
+
+    local function setupChar(char)
+        if not char then return end
+        local hrp = char:FindFirstChild("HumanoidRootPart") or char:WaitForChild("HumanoidRootPart", 5)
+        local hum = char:FindFirstChildOfClass("Humanoid") or char:WaitForChild("Humanoid", 5)
+        if not hrp or not hum then return end
+
+        local old = hrp:FindFirstChild("HealthbarESP")
+        if old then old:Destroy() end
+
+        local bb = Instance.new("BillboardGui")
+        bb.Name = "HealthbarESP"
+        bb.Size = UDim2.new(0, 100, 0, 30)
+        bb.StudsOffset = Vector3.new(0, 2.5, 0)
+        bb.AlwaysOnTop = true
+        bb.Adornee = hrp
+        bb.Parent = hrp
+
+        local hpText = Instance.new("TextLabel", bb)
+        hpText.Name = "HPText"
+        hpText.Size = UDim2.new(1, 0, 0, 14)
+        hpText.Position = UDim2.new(0, 0, 0, 0)
+        hpText.BackgroundTransparency = 1
+        hpText.TextColor3 = currentThemeColor
+        hpText.Font = Enum.Font.GothamBold
+        hpText.TextSize = 11
+        hpText.TextStrokeTransparency = 0
+        hpText.TextStrokeColor3 = Color3.fromRGB(0, 0, 0)
+
+        local bgFrame = Instance.new("Frame", bb)
+        bgFrame.Name = "BarBG"
+        bgFrame.Size = UDim2.new(1, 0, 0, 8)
+        bgFrame.Position = UDim2.new(0, 0, 0, 16)
+        bgFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+        bgFrame.BorderSizePixel = 0
+        Instance.new("UICorner", bgFrame).CornerRadius = UDim.new(0, 4)
+
+        local stroke = Instance.new("UIStroke", bgFrame)
+        stroke.Thickness = 1.5
+        stroke.Color = currentThemeColor
+
+        local fillFrame = Instance.new("Frame", bgFrame)
+        fillFrame.Name = "BarFill"
+        fillFrame.Size = UDim2.new(1, 0, 1, 0)
+        fillFrame.BackgroundColor3 = WHITE_COLOR
+        fillFrame.BorderSizePixel = 0
+        Instance.new("UICorner", fillFrame).CornerRadius = UDim.new(0, 4)
+
+        local function update()
+            local curHp = math.max(0, math.floor(hum.Health))
+            local maxHp = math.max(1, math.floor(hum.MaxHealth))
+            local ratio = math.clamp(curHp / maxHp, 0, 1)
+
+            hpText.Text = tostring(curHp) .. " / " .. tostring(maxHp)
+            fillFrame.Size = UDim2.new(ratio, 0, 1, 0)
+        end
+
+        hum:GetPropertyChangedSignal("Health"):Connect(update)
+        hum:GetPropertyChangedSignal("MaxHealth"):Connect(update)
+        update()
+
+        activeHealthbars[player.Name] = bb
+    end
+
+    if player.Character then
+        task.spawn(setupChar, player.Character)
+    end
+end
+
+local healthbarConnections = {}
+
+local function monitorPlayerHealthbars(player)
+    if player == me then return end
+    if healthbarConnections[player] then
+        healthbarConnections[player]:Disconnect()
+    end
+    healthbarConnections[player] = player.CharacterAdded:Connect(function(char)
+        task.wait(1)
+        if healthbarEnabled then
+            createHealthbarForPlayer(player)
+        end
+    end)
+    if player.Character and healthbarEnabled then
+        createHealthbarForPlayer(player)
+    end
+end
+
+local function refreshAllHealthbars()
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= me then
+            if healthbarEnabled then
+                createHealthbarForPlayer(p)
+            else
+                removeHealthbar(p)
+            end
+        end
+    end
+end
+
+Players.PlayerAdded:Connect(function(p)
+    monitorPlayerHealthbars(p)
+end)
+
+for _, p in ipairs(Players:GetPlayers()) do
+    monitorPlayerHealthbars(p)
+end
+
+Players.PlayerRemoving:Connect(function(p)
+    if healthbarConnections[p] then
+        healthbarConnections[p]:Disconnect()
+        healthbarConnections[p] = nil
+    end
+    removeHealthbar(p)
+end)
+
+local function getNearest()
+    local nearest, shortest = nil, math.huge
+    local myRoot = me.Character and me.Character:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return end
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= me and p.Character then
+            if isInList(p, friendsList) then continue end
+            if #targetsList > 0 and not isInList(p, targetsList) then continue end
+            local root = p.Character:FindFirstChild("HumanoidRootPart")
+            if root then
+                local dist = (myRoot.Position - root.Position).Magnitude
+                if dist < shortest then nearest, shortest = p, dist end
+            end
+        end
+    end
+    return nearest
+end
+
+local function hit()
+    local target = getNearest()
+    if target and target.Character then
+        for i = 1, hitMultiplier do
+            game:GetService("ReplicatedStorage").Packages.Knit.Services.CombatService.RF.Hit:InvokeServer(target.Character.Humanoid)
+        end
+    end
+end
+
+local _arc_targetCFrame = CFrame.new(-502.844818, 10.1868954, -65.4427567, 0.560596228, 2.67291544e-09, -0.828089297, -2.95736768e-08, 1, -1.67928462e-08, 0.828089297, 3.39036497e-08, 0.560596228)
+local _arc_safeCFrame = _arc_targetCFrame + Vector3.new(0, 1, 0)
+local ArcDefaultDelay = 0.1
+local ArcGrabDelay = 3.5
+local _arc_connection, _arc_platStandConn = nil, nil
+local _arc_originalCFrame = nil
+local _arc_hasCleanedThisRagdoll = false
+local _arc_returnTask = nil
+local _arc_inReturnWindow = false
+local _arc_wasGrabbed = false
+local _arc_platform = nil
+local _arc_platformStandConn = nil
+
+local _badZoneCFrame = CFrame.new(50.6816101, 3.70000315, 117.850357, -0.69541502, -2.31521002e-09, -0.71860832, 2.70699267e-08, 1, -2.94180325e-08, 0.71860832, -3.99104181e-08, -0.69541502)
+local _badZonePos = _badZoneCFrame.Position
+local _lastSafePos = nil
+local _badZoneConn = nil
+
+local function _arc_resetState()
+    _arc_originalCFrame = nil
+    _arc_returnTask = nil
+    _arc_hasCleanedThisRagdoll = false
+    _arc_inReturnWindow = false
+    _arc_wasGrabbed = false
+end
+
+local function _startBadZoneWatch()
+    if _badZoneConn then return end
+    _badZoneConn = RS.Heartbeat:Connect(function()
+        if not antiGrabEnabled then return end
+        local hrp = me.Character and me.Character:FindFirstChild("HumanoidRootPart")
+        if not hrp then return end
+        local dist = (hrp.Position - _badZonePos).Magnitude
+        if dist <= 10 then
+            if _lastSafePos then
+                hrp.CFrame = _lastSafePos
+                hrp.AssemblyLinearVelocity = Vector3.new(0, 0, 0)
+                _arc_resetState()
+            end
+        else
+            _lastSafePos = hrp.CFrame
+        end
+    end)
+end
+
+local function _stopBadZoneWatch()
+    if _badZoneConn then _badZoneConn:Disconnect() _badZoneConn = nil end
+end
+
+local function _arc_removePlatform()
+    if _arc_platformStandConn then _arc_platformStandConn:Disconnect() _arc_platformStandConn = nil end
+    if _arc_platform then pcall(function() _arc_platform:Destroy() end) _arc_platform = nil end
+end
+
+local function _arc_spawnPlatform(position)
+    _arc_removePlatform()
+    local W, H, D, T = 16, 10, 16, 1
+    local floorY = position.Y - 3.5
+    local floorCY = floorY - T/2
+    local ceilCY = floorY + H + T/2
+    local innerCY = floorY + H/2
+    local model = Instance.new("Model")
+    model.Name = "ARC_SafeBox"
+    model.Parent = workspace
+    _arc_platform = model
+    local function makePart(size, cf)
+        local p = Instance.new("Part")
+        p.Size = size
+        p.CFrame = cf
+        p.Anchored = true
+        p.CanCollide = true
+        p.Locked = true
+        p.Material = Enum.Material.SmoothPlastic
+        p.BrickColor = BrickColor.new("Medium stone grey")
+        p.Transparency = 0.4
+        p.Parent = model
+        return p
+    end
+    local cx, cz = position.X, position.Z
+    makePart(Vector3.new(W,T,D), CFrame.new(cx,floorCY,cz))
+    makePart(Vector3.new(W,T,D), CFrame.new(cx,ceilCY,cz))
+    makePart(Vector3.new(W,H+T*2,T), CFrame.new(cx,innerCY,cz+D/2+T/2))
+    makePart(Vector3.new(W,H+T*2,T), CFrame.new(cx,innerCY,cz-D/2-T/2))
+    makePart(Vector3.new(T,H+T*2,D), CFrame.new(cx-W/2-T/2,innerCY,cz))
+    makePart(Vector3.new(T,H+T*2,D), CFrame.new(cx+W/2+T/2,innerCY,cz))
+    local platformTopY = floorY
+    _arc_platformStandConn = RS.Heartbeat:Connect(function()
+        if not _arc_platform or not _arc_platform.Parent then _arc_removePlatform() return end
+        local hrp = me.Character and me.Character:FindFirstChild("HumanoidRootPart")
+        if hrp and hrp.Parent and hrp.Position.Y < platformTopY then
+            hrp.CFrame = CFrame.new(cx, platformTopY+3.5, cz)
+            hrp.AssemblyLinearVelocity = Vector3.new(0,0,0)
+        end
+    end)
+end
+
+local function _arc_forceEndRagdoll(char)
+    if not char then return end
+    local humanoid = char:FindFirstChildOfClass("Humanoid")
+    if humanoid then
+        for _, state in ipairs({Enum.HumanoidStateType.Ragdoll, Enum.HumanoidStateType.Physics, Enum.HumanoidStateType.FallingDown, Enum.HumanoidStateType.PlatformStanding}) do
+            pcall(function() humanoid:SetStateEnabled(state, false) end)
+        end
+        humanoid.PlatformStand = false
+        humanoid:ChangeState(Enum.HumanoidStateType.GettingUp)
+    end
+    for _, n in ipairs({"RagdollJoints","NoCollisions","Local Ragdoll"}) do
+        local obj = char:FindFirstChild(n) if obj then obj:Destroy() end
+    end
+    for _, obj in ipairs(char:GetDescendants()) do
+        if obj:IsA("Motor6D") then obj.Enabled = true
+        elseif (obj:IsA("BaseConstraint") or obj:IsA("Attachment")) and obj.Name:lower():find("ragdoll") then obj:Destroy() end
+    end
+end
+
+local function _arc_onCharacterAdded(char)
+    local hrp = char:WaitForChild("HumanoidRootPart", 10)
+    local hum = char:WaitForChild("Humanoid", 10)
+    if not hrp or not hum then return end
+    if _arc_connection then _arc_connection:Disconnect() _arc_connection = nil end
+    if _arc_platStandConn then _arc_platStandConn:Disconnect() _arc_platStandConn = nil end
+    _arc_resetState()
+    if _arc_returnTask then task.cancel(_arc_returnTask) _arc_returnTask = nil end
+    task.wait(2.5)
+    if not AntiRagEnabled and not AntiGrabRagEnabled then return end
+    
+    _arc_platStandConn = hum:GetPropertyChangedSignal("PlatformStand"):Connect(function()
+        if not (AntiRagEnabled or AntiGrabRagEnabled) or _arc_inReturnWindow then return end
+        if hum.PlatformStand then 
+            _arc_wasGrabbed = true 
+            _arc_originalCFrame = hrp.CFrame 
+        end
+    end)
+
+    _arc_connection = RS.Heartbeat:Connect(function()
+        if not (AntiRagEnabled or AntiGrabRagEnabled) or not char.Parent or not hrp.Parent then
+            if _arc_connection then _arc_connection:Disconnect() _arc_connection = nil end
+            return
+        end
+        if _arc_inReturnWindow then return end
+        
+        local isRagdolled = (hum:GetState() == Enum.HumanoidStateType.Physics)
+        if isRagdolled then
+            if not _arc_originalCFrame then _arc_originalCFrame = hrp.CFrame end
+            if _arc_wasGrabbed then
+                if AntiGrabRagEnabled then
+                    if not _arc_hasCleanedThisRagdoll then
+                        _arc_forceEndRagdoll(char)
+                        _arc_hasCleanedThisRagdoll = true
+                    end
+                    if not _arc_returnTask then
+                        _arc_inReturnWindow = true
+                        local savedCFrame = _arc_originalCFrame
+                        local safePos = _arc_safeCFrame.Position
+                        _arc_spawnPlatform(safePos)
+                        hrp.CFrame = CFrame.new(safePos.X, safePos.Y, safePos.Z)
+                        hrp.AssemblyLinearVelocity = Vector3.new(0,0,0)
+                        
+                        _arc_returnTask = task.delay(ArcGrabDelay, function()
+                            _arc_removePlatform()
+                            if hrp and hrp.Parent and savedCFrame then
+                                hrp.CFrame = savedCFrame
+                                task.delay(0.05, function()
+                                    if hrp and hrp.Parent then hrp.AssemblyLinearVelocity = Vector3.new(0,-1,0) end
+                                end)
+                            end
+                            _arc_resetState()
+                        end)
+                    end
+                else
+                    hrp.CFrame = _arc_safeCFrame
+                    if not _arc_hasCleanedThisRagdoll then
+                        _arc_forceEndRagdoll(char)
+                        _arc_hasCleanedThisRagdoll = true
+                    end
+                end
+            else
+                if AntiRagEnabled then
+                    hrp.CFrame = _arc_safeCFrame
+                    if not _arc_hasCleanedThisRagdoll then
+                        _arc_forceEndRagdoll(char)
+                        _arc_hasCleanedThisRagdoll = true
+                    end
+                end
+            end
+        else
+            if not _arc_wasGrabbed and _arc_originalCFrame and not _arc_returnTask then
+                _arc_inReturnWindow = true
+                local savedCFrame = _arc_originalCFrame
+                _arc_returnTask = task.delay(ArcDefaultDelay, function()
+                    if hrp and hrp.Parent and savedCFrame then
+                        hrp.CFrame = savedCFrame
+                        task.delay(0.05, function()
+                            if hrp and hrp.Parent then hrp.AssemblyLinearVelocity = Vector3.new(0,-1,0) end
+                        end)
+                    end
+                    _arc_resetState()
+                end)
+            end
+            _arc_hasCleanedThisRagdoll = false
+        end
+    end)
+end
+
+local function startARC()
+    local char = me.Character
+    if char then task.spawn(_arc_onCharacterAdded, char) end
+end
+
+local function stopARC()
+    if not AntiRagEnabled and not AntiGrabRagEnabled then
+        if _arc_connection then _arc_connection:Disconnect() _arc_connection = nil end
+        if _arc_platStandConn then _arc_platStandConn:Disconnect() _arc_platStandConn = nil end
+        _arc_removePlatform()
+    end
+end
+
+local function setupAntiGrab(char)
+    local hum = char:WaitForChild("Humanoid", 10)
+    local hrp = char:WaitForChild("HumanoidRootPart", 10)
+    if not hum or not hrp then return end
+    hum:GetPropertyChangedSignal("PlatformStand"):Connect(function()
+        if not antiGrabEnabled then return end
+        if hum.PlatformStand then
+            local originalPos = hrp.Position
+            _arc_resetState()
+            game:GetService("ReplicatedStorage").EventInviteSystem.EventTeleportEvent:FireServer()
+            task.delay(antiGrabDelay, function()
+                local currentHrp = me.Character and me.Character:FindFirstChild("HumanoidRootPart")
+                if currentHrp then currentHrp.CFrame = CFrame.new(originalPos) end
+                _arc_resetState()
+            end)
+        end
+    end)
+end
+
+local function setupDeathTp(char)
+    local hrp = char:WaitForChild("HumanoidRootPart", 10)
+    local hum = char:WaitForChild("Humanoid", 10)
+    if not hrp or not hum then return end
+    hum.Died:Connect(function() if deathTpEnabled then lastDeathPos = hrp.CFrame end end)
+end
+
+me.CharacterAdded:Connect(function(newChar)
+    _lastSafePos = nil
+    task.spawn(_arc_onCharacterAdded, newChar)
+    task.spawn(setupDeathTp, newChar)
+    task.spawn(setupAntiGrab, newChar)
+    if deathTpEnabled and lastDeathPos then
+        task.wait(0.3)
+        local hrp = newChar:FindFirstChild("HumanoidRootPart")
+        if hrp then hrp.CFrame = lastDeathPos end
+    end
+end)
+
+if me.Character then
+    task.spawn(setupDeathTp, me.Character)
+    task.spawn(setupAntiGrab, me.Character)
+end
+
+local sg = Instance.new("ScreenGui", me.PlayerGui)
+sg.ResetOnSpawn = false
+
+local notifBanner = Instance.new("Frame", sg)
+notifBanner.Size = UDim2.new(0, 420, 0, 44)
+notifBanner.Position = UDim2.new(0.5, -210, 0, -60)
+notifBanner.BackgroundColor3 = Color3.fromRGB(255, 120, 150)
+notifBanner.BorderSizePixel = 0
+notifBanner.Visible = false
+notifBanner.ZIndex = 100
+Instance.new("UICorner", notifBanner).CornerRadius = UDim.new(0, 8)
+
+local notifText = Instance.new("TextLabel", notifBanner)
+notifText.Size = UDim2.new(1, -10, 1, 0)
+notifText.Position = UDim2.new(0, 5, 0, 0)
+notifText.BackgroundTransparency = 1
+notifText.Text = ""
+notifText.TextColor3 = Color3.fromRGB(255, 255, 255)
+notifText.Font = Enum.Font.GothamBold
+notifText.TextSize = 11
+notifText.TextWrapped = true
+notifText.ZIndex = 101
+
+local notifTween = nil
+local function showNotification(message)
+    notifText.Text = message
+    notifBanner.Visible = true
+    notifBanner:TweenPosition(UDim2.new(0.5, -210, 0, 15), Enum.EasingDirection.Out, Enum.EasingStyle.Quart, 0.3, true)
+    if notifTween then task.cancel(notifTween) end
+    notifTween = task.delay(3, function()
+        notifBanner:TweenPosition(UDim2.new(0.5, -210, 0, -60), Enum.EasingDirection.In, Enum.EasingStyle.Quart, 0.3, true, function()
+            notifBanner.Visible = false
+        end)
+    end)
+end
+
+local function round(obj, r)
+    Instance.new("UICorner", obj).CornerRadius = UDim.new(0, r)
+end
+
+local toggle = Instance.new("TextButton", sg)
+toggle.Size = UDim2.new(0, 70, 0, 26)
+toggle.Position = UDim2.new(1, -80, 0, 10)
+toggle.Text = "menu"
+toggle.BackgroundColor3 = Color3.fromRGB(255, 182, 193)
+toggle.TextColor3 = Color3.fromRGB(80, 40, 50)
+toggle.BorderSizePixel = 0
+toggle.Font = Enum.Font.GothamBold
+toggle.TextSize = 11
+round(toggle, 10)
+
+-- Menu Settings Button
+local menuSettingsBtn = Instance.new("TextButton", sg)
+menuSettingsBtn.Size = UDim2.new(0, 70, 0, 26)
+menuSettingsBtn.Position = UDim2.new(1, -80, 0, 40)
+menuSettingsBtn.Text = "settings"
+menuSettingsBtn.BackgroundColor3 = Color3.fromRGB(255, 182, 193)
+menuSettingsBtn.TextColor3 = Color3.fromRGB(80, 40, 50)
+menuSettingsBtn.BorderSizePixel = 0
+menuSettingsBtn.Font = Enum.Font.GothamBold
+menuSettingsBtn.TextSize = 10
+round(menuSettingsBtn, 10)
+
+-- Menu Settings Window (Theme: Pink frame, White buttons, Draggable)
+local settingsWin = Instance.new("Frame", sg)
+settingsWin.Size = UDim2.new(0, 240, 0, 90)
+settingsWin.Position = UDim2.new(1, -330, 0.5, -45)
+settingsWin.BackgroundColor3 = Color3.fromRGB(255, 182, 193)
+settingsWin.BorderSizePixel = 0
+settingsWin.Visible = false
+settingsWin.Active = true
+round(settingsWin, 14)
+
+local settingsTopZone = Instance.new("Frame", settingsWin)
+settingsTopZone.Size = UDim2.new(1, 0, 0, 26)
+settingsTopZone.BackgroundTransparency = 1
+settingsTopZone.ZIndex = 10
+
+do
+    local dragging, dragStart, frameStart = false, nil, nil
+    settingsTopZone.InputBegan:Connect(function(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = i.Position
+            frameStart = settingsWin.AbsolutePosition
+            i.Changed:Connect(function() if i.UserInputState == Enum.UserInputState.End then dragging = false end end)
+        end
+    end)
+    UIS.InputChanged:Connect(function(i)
+        if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+            local delta = i.Position - dragStart
+            settingsWin.Position = UDim2.new(0, frameStart.X+delta.X, 0, frameStart.Y+delta.Y)
+        end
+    end)
+end
+
+menuSettingsBtn.MouseButton1Click:Connect(function()
+    settingsWin.Visible = not settingsWin.Visible
+end)
+
+local guiScaleObj = Instance.new("UIScale")
+
+local sizeLabel = Instance.new("TextLabel", settingsWin)
+sizeLabel.Size = UDim2.new(0, 220, 0, 16)
+sizeLabel.Position = UDim2.new(0, 10, 0, 10)
+sizeLabel.BackgroundTransparency = 1
+sizeLabel.Text = "size (min 0.1, max 1):"
+sizeLabel.TextColor3 = Color3.fromRGB(80, 40, 50)
+sizeLabel.Font = Enum.Font.GothamBold
+sizeLabel.TextSize = 10
+sizeLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+local sizeBox = Instance.new("TextBox", settingsWin)
+sizeBox.Size = UDim2.new(0, 220, 0, 24)
+sizeBox.Position = UDim2.new(0, 10, 0, 30)
+sizeBox.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+sizeBox.TextColor3 = Color3.fromRGB(50, 50, 50)
+sizeBox.PlaceholderText = "gui size"
+sizeBox.Text = "1"
+sizeBox.Font = Enum.Font.Gotham
+sizeBox.TextSize = 10
+round(sizeBox, 6)
+
+sizeBox:GetPropertyChangedSignal("Text"):Connect(function()
+    local val = tonumber(sizeBox.Text)
+    if val then
+        guiScaleObj.Scale = math.clamp(val, 0.1, 1)
+    end
+end)
+
+-- Expand frame width to make room for a new third column, reduce height to remove empty space
+local FRAME_W = 460
+local FRAME_H = 520 -- reduced height to remove empty bottom space
+local frame = Instance.new("Frame", sg)
+frame.Size = UDim2.new(0, FRAME_W, 0, FRAME_H)
+frame.Position = UDim2.new(1, -(FRAME_W+15), 0.5, -(FRAME_H/2))
+frame.BackgroundColor3 = Color3.fromRGB(255, 182, 193)
+frame.BorderSizePixel = 0
+frame.Visible = false -- GUI starts CLOSED by default (requested)
+frame.Active = true
+frame.ClipsDescendants = true
+round(frame, 14)
+
+guiScaleObj.Parent = frame
+
+local function makeDragZone(size, pos)
+    local z = Instance.new("Frame", frame)
+    z.Size = size
+    z.Position = pos
+    z.BackgroundTransparency = 1
+    z.ZIndex = 10
+    return z
+end
+
+local topZone    = makeDragZone(UDim2.new(1,0,0,18),  UDim2.new(0,0,0,0))
+local leftZone   = makeDragZone(UDim2.new(0,10,1,0),  UDim2.new(0,0,0,0))
+local rightZone  = makeDragZone(UDim2.new(0,10,1,0),  UDim2.new(1,-10,0,0))
+local bottomZone = makeDragZone(UDim2.new(1,0,0,10),  UDim2.new(0,0,1,-10))
+
+local dragLbl = Instance.new("TextLabel", topZone)
+dragLbl.Size = UDim2.new(1,-8,1,0)
+dragLbl.Position = UDim2.new(0,8,0,0)
+dragLbl.BackgroundTransparency = 1
+dragLbl.Text = "angelicious !"
+dragLbl.TextColor3 = Color3.fromRGB(180,80,100)
+dragLbl.TextSize = 9
+dragLbl.Font = Enum.Font.GothamBold
+dragLbl.TextXAlignment = Enum.TextXAlignment.Left
+
+do
+    local dragging, dragStart, frameStart = false, nil, nil
+    local function startDrag(i)
+        if i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = i.Position
+            frameStart = frame.AbsolutePosition
+            i.Changed:Connect(function() if i.UserInputState == Enum.UserInputState.End then dragging = false end end)
+        end
+    end
+    for _, z in ipairs({topZone, leftZone, rightZone, bottomZone}) do z.InputBegan:Connect(startDrag) end
+    UIS.InputChanged:Connect(function(i)
+        if dragging and (i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch) then
+            local delta = i.Position - dragStart
+            frame.Position = UDim2.new(0, frameStart.X+delta.X, 0, frameStart.Y+delta.Y)
+        end
+    end)
+end
+
+local LX, LW = 8, 92  
+local BX, BW = 104, 40 
+local RX, RW = 152, 140   -- middle column (previous RX)
+local CX, CW = 304, 140   -- NEW third column (far right) for gym/insta
+
+local function makeBtn(text, ypos, parent, x, w)
+    parent = parent or frame
+    x = x or LX
+    w = w or LW
+    local b = Instance.new("TextButton", parent)
+    b.Size = UDim2.new(0, w, 0, 26)
+    b.Position = UDim2.new(0, x, 0, ypos)
+    b.Text = text
+    b.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+    b.TextColor3 = Color3.fromRGB(50, 50, 50)
+    b.BorderSizePixel = 0
+    b.Font = Enum.Font.GothamBold
+    b.TextSize = 10
+    round(b, 8)
+    return b
+end
+
+local function makeBindBtn(featureName, ypos, x)
+    local b = Instance.new("TextButton", frame)
+    b.Size = UDim2.new(0, BW, 0, 26)
+    b.Position = UDim2.new(0, x or BX, 0, ypos)
+    b.Text = "bind"
+    b.BackgroundColor3 = Color3.fromRGB(240, 240, 240)
+    b.TextColor3 = Color3.fromRGB(80, 80, 80)
+    b.BorderSizePixel = 0
+    b.Font = Enum.Font.Gotham
+    b.TextSize = 9
+    round(b, 6)
+    bindButtons[featureName] = b
+    
+    b.MouseButton1Click:Connect(function()
+        bindingFor = featureName
+        b.Text = "..."
+    end)
+    return b
+end
+
+local function makeLabel(text, ypos, x, w)
+    x = x or LX
+    w = w or LW
+    local l = Instance.new("TextLabel", frame)
+    l.Size = UDim2.new(0, w, 0, 14)
+    l.Position = UDim2.new(0, x, 0, ypos)
+    l.BackgroundTransparency = 1
+    l.Text = text
+    l.TextColor3 = Color3.fromRGB(150, 60, 80)
+    l.Font = Enum.Font.GothamBold
+    l.TextSize = 10
+    l.TextXAlignment = Enum.TextXAlignment.Left
+    return l
+end
+
+local function makeTextBox(ypos, x, w, parent, placeholder)
+    parent = parent or frame
+    placeholder = placeholder or "separate by space"
+    local tb = Instance.new("TextBox", parent)
+    tb.Size = UDim2.new(0, w or LW, 0, 22)
+    tb.Position = UDim2.new(0, x or LX, 0, ypos)
+    tb.BackgroundColor3 = Color3.fromRGB(255,255,255)
+    tb.TextColor3 = Color3.fromRGB(30,30,30)
+    tb.PlaceholderText = placeholder
+    tb.Text = ""
+    tb.BorderSizePixel = 0
+    tb.Font = Enum.Font.Gotham
+    tb.TextSize = 10
+    tb.ClearTextOnFocus = false
+    round(tb, 6)
+    return tb
+end
+
+-- LEFT column (LX)
+local actionBtn = makeBtn("kill aura: off", 20)
+makeBindBtn("KillAura", 20)
+actionButtons["KillAura"] = actionBtn
+
+local hitMultiBox = makeTextBox(52, LX, 136, frame, "multiplier (above 20 lags)")
+
+local blockBtn = makeBtn("auto block: off", 80)
+makeBindBtn("AutoBlock", 80)
+actionButtons["AutoBlock"] = blockBtn
+
+local arcBtn = makeBtn("anti ragdoll: off", 112)
+makeBindBtn("AntiRagdoll", 112)
+actionButtons["AntiRagdoll"] = arcBtn
+
+local arcBtn2 = makeBtn("anti grab rag: off", 144)
+makeBindBtn("AntiGrabRag", 144)
+actionButtons["AntiGrabRag"] = arcBtn2
+
+local deathBtn = makeBtn("death tp: off", 176)
+makeBindBtn("DeathTp", 176)
+actionButtons["DeathTp"] = deathBtn
+
+local noSlowBtn = makeBtn("no slow: off", 208)
+makeBindBtn("NoSlow", 208)
+actionButtons["NoSlow"] = noSlowBtn
+
+local antiGrabBtn = makeBtn("anti grab: off", 240)
+makeBindBtn("AntiGrab", 240)
+actionButtons["AntiGrab"] = antiGrabBtn
+
+local grabBtn = makeBtn("auto grab: off", 272)
+makeBindBtn("AutoGrab", 272)
+actionButtons["AutoGrab"] = grabBtn
+
+local spamBtn = makeBtn("spam notify: off", 304)
+makeBindBtn("SpamNotify", 304)
+actionButtons["SpamNotify"] = spamBtn
+
+local msgBox = makeTextBox(336, LX, 136, frame, "custom message")
+
+local healthbarBtn = makeBtn("healthbars: off", 368)
+makeBindBtn("Healthbars", 368)
+actionButtons["Healthbars"] = healthbarBtn
+
+local tpwalkBtn = makeBtn("tpwalk: off", 400)
+makeBindBtn("TpWalk", 400)
+actionButtons["TpWalk"] = tpwalkBtn
+
+local tpwalkSpeedBox = makeTextBox(432, LX, 136, frame, "tpwalk speed (default 1)")
+
+-- no Prompts Button & Bind (Bottom left under TPWalk)
+local promptDeleteBtn = makeBtn("no prompts: off", 464, frame, LX, LW)
+promptDeleteBtn.TextSize = 10
+actionButtons["PromptDelete"] = promptDeleteBtn
+
+local pdBindBtn = Instance.new("TextButton", frame)
+pdBindBtn.Size = UDim2.new(0, BW, 0, 26)
+pdBindBtn.Position = UDim2.new(0, BX, 0, 464)
+pdBindBtn.Text = "bind"
+pdBindBtn.BackgroundColor3 = Color3.fromRGB(240, 240, 240)
+pdBindBtn.TextColor3 = Color3.fromRGB(80, 80, 80)
+pdBindBtn.BorderSizePixel = 0
+pdBindBtn.Font = Enum.Font.Gotham
+pdBindBtn.TextSize = 9
+round(pdBindBtn, 6)
+bindButtons["PromptDelete"] = pdBindBtn
+
+pdBindBtn.MouseButton1Click:Connect(function()
+    bindingFor = "PromptDelete"
+    pdBindBtn.Text = "..."
+end)
+
+-- RIGHT column (CX) - NEW column for gym/insta (top of column)
+local gymLabelY = 20 -- top of the rightmost column
+makeLabel("gym ban", gymLabelY, CX, CW)
+
+local gymUsersBox = makeTextBox(gymLabelY + 16, CX, CW, frame, "users separated by space")
+gymUsersBox.Text = ""
+
+local gymDelayBox = makeTextBox(gymLabelY + 48, CX + 72, 68, frame, "delay (s)")
+gymDelayBox.Text = tostring(gymDelay)
+
+local gymHeightBox = makeTextBox(gymLabelY + 80, CX + 72, 68, frame, "height (default 1000)")
+gymHeightBox.Text = tostring(gymHeight)
+
+local gymLengthBox = makeTextBox(gymLabelY + 112, CX + 72, 68, frame, "length (default 0)")
+gymLengthBox.Text = tostring(gymLength)
+
+local gymDistanceBox = makeTextBox(gymLabelY + 144, CX + 72, 68, frame, "distance (default 0)")
+gymDistanceBox.Text = tostring(gymDistance)
+
+local gymBtnY = gymLabelY + 176
+local gymBtn = makeBtn("gym ban: off", gymBtnY, frame, CX, CW)
+gymBtn.TextSize = 10
+actionButtons["GymBan"] = gymBtn
+
+local banCheckBtn = makeBtn("ban check: off", gymBtnY + 32, frame, CX, CW)
+banCheckBtn.TextSize = 10
+
+-- Place insta near gym (rightmost column)
+local instaY = gymBtnY + 72
+local instaBtn = makeBtn("insta", instaY, frame, CX, LW)
+instaBtn.TextSize = 10
+local instaBindBtn = makeBindBtn("Insta", instaY, CX + 100)
+-- Extra explicit click handler (fixes bind edge-cases)
+instaBindBtn.MouseButton1Click:Connect(function()
+    bindingFor = "Insta"
+    instaBindBtn.Text = "..."
+end)
+
+-- Bring button (under insta) - ADDED
+local bringY = instaY + 36
+local bringBtn = makeBtn("bring", bringY, frame, CX, LW)
+bringBtn.TextSize = 10
+local bringBindBtn = makeBindBtn("Bring", bringY, CX + 100)
+-- makeBindBtn already sets bindingFor and the button text to "..."
+
+-- MIDDLE column (RX) - moved back up (start near top)
+makeLabel("friends list", 20, RX, RW) -- moved to top of middle column
+local friendsBox = makeTextBox(35, RX, RW, frame, "user or display name")
+local friendHLBtn = makeBtn("friend tag: off", 60, frame, RX, RW)
+friendHLBtn.TextSize = 10
+
+makeLabel("targets list", 90, RX, RW)
+local targetsBox = makeTextBox(105, RX, RW, frame, "user or display name")
+local targetHLBtn = makeBtn("target tag: off", 130, frame, RX, RW)
+targetHLBtn.TextSize = 10
+
+local hDiv2 = Instance.new("Frame", frame)
+hDiv2.Size = UDim2.new(0, RW, 0, 1)
+hDiv2.Position = UDim2.new(0, RX, 0, 162)
+hDiv2.BackgroundColor3 = Color3.fromRGB(220, 140, 160)
+hDiv2.BorderSizePixel = 0
+
+makeLabel("follow player", 168, RX, RW)
+local followBox = makeTextBox(182, RX, RW, frame, "user or display name")
+local followBtn = makeBtn("follow: off", 208, frame, RX, RW)
+followBtn.TextSize = 10
+
+makeLabel("orbit player", 240, RX, RW)
+local orbitBox = makeTextBox(254, RX, RW, frame, "dist speed (e.g. 8 3)")
+local orbitBtn = makeBtn("orbit: off", 280, frame, RX, RW)
+orbitBtn.TextSize = 10
+
+local hitboxBtn = makeBtn("hitbox aura: off", 326, frame, RX, 96)
+hitboxBtn.TextSize = 10
+actionButtons["HitboxAura"] = hitboxBtn
+
+local hbBindBtn = Instance.new("TextButton", frame)
+hbBindBtn.Size = UDim2.new(0, 40, 0, 26)
+hbBindBtn.Position = UDim2.new(0, RX + 100, 0, 326)
+hbBindBtn.Text = "bind"
+hbBindBtn.BackgroundColor3 = Color3.fromRGB(240, 240, 240)
+hbBindBtn.TextColor3 = Color3.fromRGB(80, 80, 80)
+hbBindBtn.BorderSizePixel = 0
+hbBindBtn.Font = Enum.Font.Gotham
+hbBindBtn.TextSize = 9
+round(hbBindBtn, 6)
+bindButtons["HitboxAura"] = hbBindBtn
+
+hbBindBtn.MouseButton1Click:Connect(function()
+    bindingFor = "HitboxAura"
+    hbBindBtn.Text = "..."
+end)
+
+local hitboxDistBox = makeTextBox(356, RX, 68, frame, "dist (28)")
+local hitboxSizeBox = makeTextBox(356, RX + 72, 68, frame, "size (25)")
+local multiHitboxBtn = makeBtn("multi-hitbox: off", 392, frame, RX, RW)
+multiHitboxBtn.TextSize = 10
+
+local flyjumpBtn = makeBtn("flyjump: off", 426, frame, RX, 96)
+flyjumpBtn.TextSize = 10
+actionButtons["FlyJump"] = flyjumpBtn
+
+local fjBindBtn = Instance.new("TextButton", frame)
+fjBindBtn.Size = UDim2.new(0, 40, 0, 26)
+fjBindBtn.Position = UDim2.new(0, RX + 100, 0, 426)
+fjBindBtn.Text = "bind"
+fjBindBtn.BackgroundColor3 = Color3.fromRGB(240, 240, 240)
+fjBindBtn.TextColor3 = Color3.fromRGB(80, 80, 80)
+fjBindBtn.BorderSizePixel = 0
+fjBindBtn.Font = Enum.Font.Gotham
+fjBindBtn.TextSize = 9
+round(fjBindBtn, 6)
+bindButtons["FlyJump"] = fjBindBtn
+
+fjBindBtn.MouseButton1Click:Connect(function()
+    bindingFor = "FlyJump"
+    fjBindBtn.Text = "..."
+end)
+
+-- AutoClicker Button & Bind & CPS Box (lower middle)
+local autoclickBtn = makeBtn("autoclicker: off", 460, frame, RX, 96)
+autoclickBtn.TextSize = 10
+actionButtons["AutoClicker"] = autoclickBtn
+
+local acBindBtn = Instance.new("TextButton", frame)
+acBindBtn.Size = UDim2.new(0, 40, 0, 26)
+acBindBtn.Position = UDim2.new(0, RX + 100, 0, 460)
+acBindBtn.Text = "bind"
+acBindBtn.BackgroundColor3 = Color3.fromRGB(240, 240, 240)
+acBindBtn.TextColor3 = Color3.fromRGB(80, 80, 80)
+acBindBtn.BorderSizePixel = 0
+acBindBtn.Font = Enum.Font.Gotham
+acBindBtn.TextSize = 9
+round(acBindBtn, 6)
+bindButtons["AutoClicker"] = acBindBtn
+
+acBindBtn.MouseButton1Click:Connect(function()
+    bindingFor = "AutoClicker"
+    acBindBtn.Text = "..."
+end)
+
+local autoclickCpsBox = makeTextBox(492, RX, RW, frame, "cps (max 100)")
+
+-- Hookups and reactive handlers
+friendsBox:GetPropertyChangedSignal("Text"):Connect(function()
+    friendsList = parseList(friendsBox.Text)
+    refreshTags()
+end)
+
+targetsBox:GetPropertyChangedSignal("Text"):Connect(function()
+    targetsList = parseList(targetsBox.Text)
+    refreshTags()
+end)
+
+followBox:GetPropertyChangedSignal("Text"):Connect(function()
+    followTargetQuery = followBox.Text
+end)
+
+orbitBox:GetPropertyChangedSignal("Text"):Connect(function()
+    local parts = parseList(orbitBox.Text)
+    if #parts >= 1 and tonumber(parts[1]) then
+        orbitDistance = tonumber(parts[1])
+    end
+    if #parts >= 2 and tonumber(parts[2]) then
+        orbitSpeed = tonumber(parts[2])
+    end
+end)
+
+hitboxDistBox:GetPropertyChangedSignal("Text"):Connect(function()
+    local val = tonumber(hitboxDistBox.Text)
+    if val then hitboxDistance = val end
+end)
+
+hitboxSizeBox:GetPropertyChangedSignal("Text"):Connect(function()
+    local val = tonumber(hitboxSizeBox.Text)
+    if val then hitboxSize = val end
+end)
+
+tpwalkSpeedBox:GetPropertyChangedSignal("Text"):Connect(function()
+    local val = tonumber(tpwalkSpeedBox.Text)
+    if val then tpwalkSpeed = val end
+end)
+
+autoclickCpsBox:GetPropertyChangedSignal("Text"):Connect(function()
+    local val = tonumber(autoclickCpsBox.Text)
+    if val then autoclickerCps = math.clamp(val, 1, 100) end
+end)
+
+friendHLBtn.MouseButton1Click:Connect(function()
+    friendTagEnabled = not friendTagEnabled
+    friendHLBtn.Text = friendTagEnabled and "friend tag: on" or "friend tag: off"
+    friendHLBtn.BackgroundColor3 = friendTagEnabled and Color3.fromRGB(210,210,210) or Color3.fromRGB(255,255,255)
+    refreshTags()
+end)
+
+targetHLBtn.MouseButton1Click:Connect(function()
+    targetTagEnabled = not targetTagEnabled
+    targetHLBtn.Text = targetTagEnabled and "target tag: on" or "target tag: off"
+    targetHLBtn.BackgroundColor3 = targetTagEnabled and Color3.fromRGB(210,210,210) or Color3.fromRGB(255,255,255)
+    refreshTags()
+end)
+
+task.spawn(function()
+    while true do
+        local dt = task.wait()
+        if (followEnabled or orbitEnabled) and followTargetQuery ~= "" then
+            if _arc_inReturnWindow then continue end
+            local targetPlayer = nil
+            for _, p in ipairs(Players:GetPlayers()) do
+                if p ~= me and playerMatchesQuery(p, followTargetQuery) then
+                    targetPlayer = p
+                    break
+                end
+            end
+            if targetPlayer and targetPlayer.Character then
+                local tHrp = targetPlayer.Character:FindFirstChild("HumanoidRootPart")
+                local myHrp = me.Character and me.Character:FindFirstChild("HumanoidRootPart")
+                if tHrp and myHrp then
+                    if orbitEnabled then
+                        orbitAngle = orbitAngle + (dt * orbitSpeed)
+                        local offset = Vector3.new(math.cos(orbitAngle) * orbitDistance, 0, math.sin(orbitAngle) * orbitDistance)
+                        myHrp.CFrame = CFrame.new(tHrp.Position + offset, tHrp.Position)
+                    elseif followEnabled then
+                        myHrp.CFrame = tHrp.CFrame * CFrame.new(0, 0, 3)
+                    end
+                end
+            end
+        end
+    end
+end)
+
+local function resetHitbox(player)
+    if player and player.Character then
+        local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            pcall(function()
+                hrp.Size = Vector3.new(2, 2, 1)
+                hrp.Transparency = 1
+                hrp.Material = Enum.Material.Plastic
+                hrp.CanCollide = false
+                hrp.Shape = Enum.PartType.Block
+            end)
+        end
+    end
+end
+
+local pinkWhiteHue = 0
+RS.RenderStepped:Connect(function(dt)
+    pinkWhiteHue = (pinkWhiteHue + (dt * 0.5)) % 1
+    local lerpFactor = (math.sin(pinkWhiteHue * math.pi * 2) + 1) / 2
+    local currentColor = Color3.fromRGB(255, 182, 193):Lerp(Color3.fromRGB(255, 255, 255), lerpFactor)
+
+    if not hitboxAuraEnabled then
+        for p, _ in pairs(modifiedHitboxes) do
+            resetHitbox(p)
+        end
+        table.clear(modifiedHitboxes)
+        return
+    end
+
+    local myRoot = me.Character and me.Character:FindFirstChild("HumanoidRootPart")
+    if not myRoot then return end
+
+    local activeThisFrame = {}
+
+    if multiHitboxEnabled then
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= me and p.Character then
+                local hum = p.Character:FindFirstChildOfClass("Humanoid")
+                if not hum or hum.Health <= 0 then continue end
+                if isInList(p, friendsList) then continue end
+                if #targetsList > 0 and not isInList(p, targetsList) then continue end
+
+                local root = p.Character:FindFirstChild("HumanoidRootPart")
+                if root then
+                    local dist = (myRoot.Position - root.Position).Magnitude
+                    if dist <= hitboxDistance then
+                        activeThisFrame[p] = true
+                        pcall(function()
+                            root.Size = Vector3.new(hitboxSize, hitboxSize, hitboxSize)
+                            root.Transparency = 0.95
+                            root.Color = currentColor
+                            root.Material = Enum.Material.Neon
+                            root.CanCollide = false
+                            root.Shape = Enum.PartType.Ball
+                        end)
+                    end
+                end
+            end
+        end
+    else
+        local nearest, shortest = nil, hitboxDistance
+        for _, p in ipairs(Players:GetPlayers()) do
+            if p ~= me and p.Character then
+                local hum = p.Character:FindFirstChildOfClass("Humanoid")
+                if not hum or hum.Health <= 0 then continue end
+                if isInList(p, friendsList) then continue end
+                if #targetsList > 0 and not isInList(p, targetsList) then continue end
+
+                local root = p.Character:FindFirstChild("HumanoidRootPart")
+                if root then
+                    local dist = (myRoot.Position - root.Position).Magnitude
+                    if dist <= shortest then
+                        nearest = p
+                        shortest = dist
+                    end
+                end
+            end
+        end
+
+        if nearest and nearest.Character then
+            local root = nearest.Character:FindFirstChild("HumanoidRootPart")
+            if root then
+                activeThisFrame[nearest] = true
+                pcall(function()
+                    root.Size = Vector3.new(hitboxSize, hitboxSize, hitboxSize)
+                    root.Transparency = 0.95
+                    root.Color = currentColor
+                    root.Material = Enum.Material.Neon
+                    root.CanCollide = false
+                    root.Shape = Enum.PartType.Ball
+                end)
+            end
+        end
+    end
+
+    for p, _ in pairs(modifiedHitboxes) do
+        if not activeThisFrame[p] then
+            resetHitbox(p)
+            modifiedHitboxes[p] = nil
+        end
+    end
+
+    for p, _ in pairs(activeThisFrame) do
+        modifiedHitboxes[p] = true
+    end
+end)
+
+followBtn.MouseButton1Click:Connect(function()
+    followEnabled = not followEnabled
+    if followEnabled then orbitEnabled = false orbitBtn.Text = "orbit: off" orbitBtn.BackgroundColor3 = Color3.fromRGB(255,255,255) end
+    followBtn.Text = followEnabled and "follow: on" or "follow: off"
+    followBtn.BackgroundColor3 = followEnabled and Color3.fromRGB(210,210,210) or Color3.fromRGB(255,255,255)
+end)
+
+orbitBtn.MouseButton1Click:Connect(function()
+    orbitEnabled = not orbitEnabled
+    if orbitEnabled then followEnabled = false followBtn.Text = "follow: off" followBtn.BackgroundColor3 = Color3.fromRGB(255,255,255) end
+    orbitBtn.Text = orbitEnabled and "orbit: on" or "orbit: off"
+    orbitBtn.BackgroundColor3 = orbitEnabled and Color3.fromRGB(210,210,210) or Color3.fromRGB(255,255,255)
+end)
+
+multiHitboxBtn.MouseButton1Click:Connect(function()
+    multiHitboxEnabled = not multiHitboxEnabled
+    multiHitboxBtn.Text = multiHitboxEnabled and "multi-hitbox: on" or "multi-hitbox: off"
+    multiHitboxBtn.BackgroundColor3 = multiHitboxEnabled and Color3.fromRGB(210,210,210) or Color3.fromRGB(255,255,255)
+end)
+
+hitMultiBox:GetPropertyChangedSignal("Text"):Connect(function()
+    local val = tonumber(hitMultiBox.Text)
+    if val then hitMultiplier = math.clamp(val, 1, 100) end
+end)
+
+toggle.MouseButton1Click:Connect(function()
+    frame.Visible = not frame.Visible
+end)
+
+-- Hook up text change handlers for gym UI (now in new CX column)
+gymUsersBox:GetPropertyChangedSignal("Text"):Connect(function()
+    gymUsersList = parseList(gymUsersBox.Text)
+end)
+
+gymDelayBox:GetPropertyChangedSignal("Text"):Connect(function()
+    local v = tonumber(gymDelayBox.Text)
+    if v then gymDelay = v end
+end)
+
+gymHeightBox:GetPropertyChangedSignal("Text"):Connect(function()
+    local v = tonumber(gymHeightBox.Text)
+    if v then gymHeight = v end
+end)
+
+gymLengthBox:GetPropertyChangedSignal("Text"):Connect(function()
+    local v = tonumber(gymLengthBox.Text)
+    if v then gymLength = v end
+end)
+
+gymDistanceBox:GetPropertyChangedSignal("Text"):Connect(function()
+    local v = tonumber(gymDistanceBox.Text)
+    if v then gymDistance = v end
+end)
+
+-- Helper to find a target player by query
+local function getTargetPlayer(query)
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= me and playerMatchesQuery(p, query) then
+            return p
+        end
+    end
+    return nil
+end
+
+-- Start/stop gym cycle logic (respawn-safe)
+local Replicated = game:GetService("ReplicatedStorage")
+
+local function stopGymCycle()
+    gymBanEnabled = false
+    gymBtn.Text = "gym ban: off"
+    gymBtn.BackgroundColor3 = Color3.fromRGB(255,255,255)
+    -- ensure ban check is also off
+    if gymBanCheck then
+        gymBanCheck = false
+        banCheckBtn.Text = "ban check: off"
+        banCheckBtn.BackgroundColor3 = Color3.fromRGB(255,255,255)
+    end
+    if gymCycleThread then
+        task.cancel(gymCycleThread)
+        gymCycleThread = nil
+    end
+    -- always attempt to StopCarry when turning off
+    pcall(function() Replicated.StopCarry:FireServer() end)
+end
+
+-- Modified startGymCycle: supports "all" (case-insensitive) to target every player
+-- Uses gymLength (arg2), gymHeight (arg3), gymDistance (arg4)
+local function startGymCycle()
+    if gymCycleThread then return end
+    gymCycleThread = task.spawn(function()
+        while gymBanEnabled do
+            local queries = gymUsersList or {}
+            local delayVal = tonumber(gymDelay) or 1
+
+            if #queries == 0 then
+                task.wait(0.5)
+            else
+                -- Build list of target player objects.
+                local targetPlayers = {}
+                local isAll = (#queries == 1 and tostring(queries[1]):lower() == "all")
+                if isAll then
+                    for _, p in ipairs(Players:GetPlayers()) do
+                        if p ~= me then table.insert(targetPlayers, p) end
+                    end
+                else
+                    for _, q in ipairs(queries) do
+                        local p = getTargetPlayer(q)
+                        if p then table.insert(targetPlayers, p) end
+                    end
+                end
+
+                if #targetPlayers == 0 then
+                    task.wait(0.5)
+                else
+                    if gymBanCheck then
+                        -- For each target: carry -> TP -> stop -> wait -> next
+                        for _, targetPlayer in ipairs(targetPlayers) do
+                            if not gymBanEnabled then break end
+                            if targetPlayer and targetPlayer.Character then
+                                pcall(function()
+                                    Replicated.CarryRequest:FireServer(table.unpack({
+                                        [1] = targetPlayer,
+                                        [2] = gymLength,
+                                        [3] = gymHeight,
+                                        [4] = gymDistance,
+                                        [5] = 0, [6] = 0, [7] = 0,
+                                    }))
+                                end)
+                                task.wait(0.12)
+                                pcall(function()
+                                    Replicated.EventInviteSystem.EventTeleportEvent:FireServer()
+                                end)
+                                task.wait(0.12)
+                                pcall(function()
+                                    Replicated.StopCarry:FireServer()
+                                end)
+                            end
+                            task.wait(delayVal)
+                        end
+                    else
+                        -- Looping mode: iterate targets, carry -> TP -> wait -> stop (per-target)
+                        for _, targetPlayer in ipairs(targetPlayers) do
+                            if not gymBanEnabled then break end
+                            if targetPlayer and targetPlayer.Character then
+                                pcall(function()
+                                    Replicated.CarryRequest:FireServer(table.unpack({
+                                        [1] = targetPlayer,
+                                        [2] = gymLength,
+                                        [3] = gymHeight,
+                                        [4] = gymDistance,
+                                        [5] = 0, [6] = 0, [7] = 0,
+                                    }))
+                                end)
+                                task.wait(0.12)
+                                pcall(function()
+                                    Replicated.EventInviteSystem.EventTeleportEvent:FireServer()
+                                end)
+                                task.wait(delayVal)
+                                pcall(function()
+                                    Replicated.StopCarry:FireServer()
+                                end)
+                                task.wait(0.12)
+                            end
+                        end
+                    end
+                end
+            end
+        end
+        -- final cleanup
+        pcall(function() Replicated.StopCarry:FireServer() end)
+    end)
+end
+
+-- Button behavior for gym (rightmost column)
+gymBtn.MouseButton1Click:Connect(function()
+    gymBanEnabled = not gymBanEnabled
+    if gymBanEnabled then
+        gymBtn.Text = "gym ban: on"
+        gymBtn.BackgroundColor3 = Color3.fromRGB(210,210,210)
+        startGymCycle()
+    else
+        stopGymCycle()
+    end
+end)
+
+banCheckBtn.MouseButton1Click:Connect(function()
+    if not gymBanEnabled then
+        showNotification("Enable Gym Ban first to use Ban Check")
+        return
+    end
+    gymBanCheck = not gymBanCheck
+    banCheckBtn.Text = gymBanCheck and "ban check: on" or "ban check: off"
+    banCheckBtn.BackgroundColor3 = gymBanCheck and Color3.fromRGB(210,210,210) or Color3.fromRGB(255,255,255)
+end)
+
+-- NEW: insta return heartbeat connection (copied approach from anti-grab)
+local _insta_returnConn = nil
+local function _startInstaReturn(savedCFrame, duration)
+    -- cancel any existing insta return watcher
+    if _insta_returnConn then
+        _insta_returnConn:Disconnect()
+        _insta_returnConn = nil
+    end
+    if not savedCFrame then return end
+    local startTime = tick()
+    _insta_returnConn = RS.Heartbeat:Connect(function()
+        if tick() - startTime > (duration or 0.8) then
+            if _insta_returnConn then _insta_returnConn:Disconnect() _insta_returnConn = nil end
+            return
+        end
+        local hrp = me.Character and me.Character:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            pcall(function()
+                hrp.CFrame = savedCFrame
+                hrp.AssemblyLinearVelocity = Vector3.new(0, -1, 0)
+            end)
+        end
+    end)
+end
+
+-- Insta logic refactored into a function so it can be called from the button and keybinds
+-- Uses heartbeat-based return (no platform) to repeatedly set HRP back to the saved CFrame
+-- Also uses gymLength/gymHeight/gymDistance for the CarryRequest arguments
+local function performInsta()
+    if instaBtn:GetAttribute("running") then return end
+    instaBtn:SetAttribute("running", true)
+    instaBtn.Text = "insta..."
+    instaBtn.BackgroundColor3 = Color3.fromRGB(210,210,210)
+
+    task.spawn(function()
+        local queries = gymUsersList or {}
+        if #queries == 0 then
+            showNotification("No users entered for insta")
+            instaBtn:SetAttribute("running", false)
+            instaBtn.Text = "insta"
+            instaBtn.BackgroundColor3 = Color3.fromRGB(255,255,255)
+            return
+        end
+
+        local mySavedCFrame = nil
+        if me.Character and me.Character:FindFirstChild("HumanoidRootPart") then
+            mySavedCFrame = me.Character.HumanoidRootPart.CFrame
+        end
+
+        for _, query in ipairs(queries) do
+            if not instaBtn:GetAttribute("running") then break end
+            local targetPlayer = getTargetPlayer(query)
+            if targetPlayer and targetPlayer.Character then
+                -- Attempt carry once using gymLength/gymHeight/gymDistance
+                pcall(function()
+                    Replicated.CarryRequest:FireServer(table.unpack({
+                        [1] = targetPlayer,
+                        [2] = gymLength,
+                        [3] = gymHeight,
+                        [4] = gymDistance,
+                        [5] = 0, [6] = 0, [7] = 0,
+                    }))
+                end)
+                task.wait(0.12)
+                -- Teleport to event (single)
+                pcall(function()
+                    Replicated.EventInviteSystem.EventTeleportEvent:FireServer()
+                end)
+                task.wait(0.08)
+                -- Stop carry (drop)
+                pcall(function()
+                    Replicated.StopCarry:FireServer()
+                end)
+
+                -- Apply anti-grab-like heartbeat return: immediately attempt to set HRP back,
+                -- then run the heartbeat that repeatedly enforces the saved CFrame for a short duration.
+                if mySavedCFrame then
+                    pcall(function()
+                        local hrp = me.Character and me.Character:FindFirstChild("HumanoidRootPart")
+                        if hrp then
+                            hrp.CFrame = mySavedCFrame
+                            hrp.AssemblyLinearVelocity = Vector3.new(0, -1, 0)
+                        end
+                    end)
+                    _startInstaReturn(mySavedCFrame, 0.8)
+                end
+
+                task.wait(0.06)
+            else
+                task.wait(0.12)
+            end
+        end
+
+        instaBtn:SetAttribute("running", false)
+        instaBtn.Text = "insta"
+        instaBtn.BackgroundColor3 = Color3.fromRGB(255,255,255)
+    end)
+end
+
+-- Hook the button to the refactored function
+instaBtn.MouseButton1Click:Connect(performInsta)
+
+-- Add "Insta" bind button behavior (far right) - already set via makeBindBtn; ensure Keybinds will be set
+instaBindBtn.MouseButton1Click:Connect(function()
+    bindingFor = "Insta"
+    instaBindBtn.Text = "..."
+end)
+
+-- Bring implementation (ADDED)
+-- Uses the same approach as your BringWithHeight_InstantRestore test:
+-- CarryRequest -> wait(0.12) -> EventTeleportEvent -> IMMEDIATE local restore + heartbeat -> wait(0.08) -> StopCarry
+local EVENT_CFRAME = CFrame.new(53.5, 8.298911, 118.149994)
+local RETURN_DURATION = 0.8
+local CARRY_WAIT = 0.12
+local TELEPORT_WAIT = 0.08
+
+local function round(n) return math.floor(n + 0.5) end
+
+local function computeArgsForDesired(desiredPos, eventPos)
+    -- Inversions per your notes:
+    -- arg2 (length) inverted: eventX - desiredX
+    -- arg3 (height) reversed: eventY - desiredY
+    -- arg4 (distance) inverted: eventZ - desiredZ
+    local a2 = eventPos.X - desiredPos.X
+    local a4 = eventPos.Z - desiredPos.Z
+    local a3 = eventPos.Y - desiredPos.Y
+    return round(a2), round(a3), round(a4)
+end
+
+local function doCarryTeleportStop_InstantRestore(target, a2, a3, a4, mySavedCFrame)
+    pcall(function()
+        if Replicated:FindFirstChild("CarryRequest") then
+            Replicated.CarryRequest:FireServer(table.unpack({
+                [1] = target,
+                [2] = a2,
+                [3] = a3,
+                [4] = a4,
+                [5] = 0, [6] = 0, [7] = 0,
+            }))
+        else
+            warn("CarryRequest remote not found")
+        end
+    end)
+
+    task.wait(CARRY_WAIT)
+
+    pcall(function()
+        local evRoot = Replicated:FindFirstChild("EventInviteSystem")
+        if evRoot and evRoot:FindFirstChild("EventTeleportEvent") then
+            evRoot.EventTeleportEvent:FireServer()
+        elseif Replicated:FindFirstChild("EventTeleportEvent") then
+            Replicated.EventTeleportEvent:FireServer()
+        else
+            warn("EventTeleportEvent not found")
+        end
+    end)
+
+    -- IMMEDIATE local restore and heartbeat
+    pcall(function()
+        local hrp = me.Character and me.Character:FindFirstChild("HumanoidRootPart")
+        if hrp and mySavedCFrame then
+            hrp.CFrame = mySavedCFrame
+            hrp.AssemblyLinearVelocity = Vector3.new(0, -1, 0)
+        end
+    end)
+    _startInstaReturn(mySavedCFrame, RETURN_DURATION)
+
+    task.wait(TELEPORT_WAIT)
+
+    pcall(function() if Replicated:FindFirstChild("StopCarry") then Replicated.StopCarry:FireServer() end end)
+end
+
+local function performBring()
+    if bringBtn:GetAttribute("running") then return end
+    bringBtn:SetAttribute("running", true)
+    bringBtn.Text = "bringing..."
+    bringBtn.BackgroundColor3 = Color3.fromRGB(210,210,210)
+
+    task.spawn(function()
+        local queries = gymUsersList or {}
+        if #queries == 0 then
+            showNotification("No users entered for bring")
+            bringBtn:SetAttribute("running", false)
+            bringBtn.Text = "bring"
+            bringBtn.BackgroundColor3 = Color3.fromRGB(255,255,255)
+            return
+        end
+
+        local mySavedCFrame = nil
+        if me.Character and me.Character:FindFirstChild("HumanoidRootPart") then
+            mySavedCFrame = me.Character.HumanoidRootPart.CFrame
+        end
+
+        local evPos = EVENT_CFRAME.Position
+
+        -- find targets according to gymUsersList (same as gym ban input)
+        local targetPlayers = {}
+        local isAll = (#queries == 1 and tostring(queries[1]):lower() == "all")
+        if isAll then
+            for _, p in ipairs(Players:GetPlayers()) do if p ~= me then table.insert(targetPlayers, p) end end
+        else
+            for _, q in ipairs(queries) do
+                local p = getTargetPlayer(q)
+                if p then table.insert(targetPlayers, p) end
+            end
+        end
+
+        if #targetPlayers == 0 then
+            showNotification("No matching targets for bring")
+            bringBtn:SetAttribute("running", false)
+            bringBtn.Text = "bring"
+            bringBtn.BackgroundColor3 = Color3.fromRGB(255,255,255)
+            return
+        end
+
+        for _, targetPlayer in ipairs(targetPlayers) do
+            if not bringBtn:GetAttribute("running") then break end
+            if targetPlayer and targetPlayer.Character then
+                local hrp = me.Character and me.Character:FindFirstChild("HumanoidRootPart")
+                if not hrp then
+                    warn("Local player has no HumanoidRootPart")
+                    break
+                end
+                local myPos = mySavedCFrame and mySavedCFrame.Position or hrp.Position
+
+                local a2, a3, a4 = computeArgsForDesired(myPos, evPos)
+                local predicted = Vector3.new(evPos.X + a2, evPos.Y - a3, evPos.Z + a4)
+                local predDist = (predicted - myPos).Magnitude
+
+                print(("Bringing %s | arg2=%d arg3=%d arg4=%d | predicted distance to me = %.4f")
+                    :format(targetPlayer.Name, a2, a3, a4, predDist))
+
+                doCarryTeleportStop_InstantRestore(targetPlayer, a2, a3, a4, mySavedCFrame)
+
+                -- No additional delay between targets (per request)
+            end
+        end
+
+        bringBtn:SetAttribute("running", false)
+        bringBtn.Text = "bring"
+        bringBtn.BackgroundColor3 = Color3.fromRGB(255,255,255)
+    end)
+end
+
+-- Hook bring button & bind
+bringBtn.MouseButton1Click:Connect(performBring)
+bringBindBtn.MouseButton1Click:Connect(function()
+    bindingFor = "Bring"
+    bringBindBtn.Text = "..."
+end)
+-- End of Bring implementation (ADDED)
+
+-- toggleFeature function (only relevant bits shown; rest preserved)
+local function toggleFeature(name)
+    if name == "KillAura" then
+        running = false
+        actionBtn.Text = "kill aura: off"
+        actionBtn.BackgroundColor3 = Color3.fromRGB(255,255,255)
+        if conn then conn:Disconnect() conn = nil end
+        showNotification("Killaura doesn't work in this game at the moment")
+    elseif name == "AutoBlock" then
+        blocking = not blocking
+        blockBtn.Text = blocking and "auto block: on" or "auto block: off"
+        blockBtn.BackgroundColor3 = blocking and Color3.fromRGB(210,210,210) or Color3.fromRGB(255,255,255)
+        if blocking then
+            task.spawn(function()
+                while blocking do
+                    pcall(function()
+                        Replicated.Packages.Knit.Services.CombatService.RF.y:InvokeServer(true)
+                    end)
+                    task.wait()
+                end
+            end)
+        end
+    elseif name == "AntiRagdoll" then
+        AntiRagEnabled = not AntiRagEnabled
+        arcBtn.Text = AntiRagEnabled and "anti ragdoll: on" or "anti ragdoll: off"
+        arcBtn.BackgroundColor3 = AntiRagEnabled and Color3.fromRGB(210,210,210) or Color3.fromRGB(255,255,255)
+        if AntiRagEnabled then startARC() else stopARC() end
+    elseif name == "AntiGrabRag" then
+        AntiGrabRagEnabled = not AntiGrabRagEnabled
+        arcBtn2.Text = AntiGrabRagEnabled and "anti grab rag: on" or "anti grab rag: off"
+        arcBtn2.BackgroundColor3 = AntiGrabRagEnabled and Color3.fromRGB(210,210,210) or Color3.fromRGB(255,255,255)
+        if AntiGrabRagEnabled then startARC() else stopARC() end
+    elseif name == "DeathTp" then
+        deathTpEnabled = not deathTpEnabled
+        deathBtn.Text = deathTpEnabled and "death tp: on" or "death tp: off"
+        deathBtn.BackgroundColor3 = deathTpEnabled and Color3.fromRGB(210,210,210) or Color3.fromRGB(255,255,255)
+    elseif name == "NoSlow" then
+        noSlowEnabled = not noSlowEnabled
+        noSlowBtn.Text = noSlowEnabled and "no slow: on" or "no slow: off"
+        noSlowBtn.BackgroundColor3 = noSlowEnabled and Color3.fromRGB(210,210,210) or Color3.fromRGB(255,255,255)
+        if noSlowEnabled then
+            noSlowConn = RS.Heartbeat:Connect(function()
+                local hum = me.Character and me.Character:FindFirstChildOfClass("Humanoid")
+                if hum and hum.WalkSpeed < 16 then hum.WalkSpeed = 16 end
+            end)
+        else
+            if noSlowConn then noSlowConn:Disconnect() noSlowConn = nil end
+        end
+    elseif name == "AntiGrab" then
+        antiGrabEnabled = not antiGrabEnabled
+        antiGrabBtn.Text = antiGrabEnabled and "anti grab: on" or "anti grab: off"
+        antiGrabBtn.BackgroundColor3 = antiGrabEnabled and Color3.fromRGB(210,210,210) or Color3.fromRGB(255,255,255)
+        if antiGrabEnabled then _startBadZoneWatch() else _stopBadZoneWatch() end
+    elseif name == "AutoGrab" then
+        grabbing = not grabbing
+        grabBtn.Text = grabbing and "auto grab: on" or "auto grab: off"
+        grabBtn.BackgroundColor3 = grabbing and Color3.fromRGB(210,210,210) or Color3.fromRGB(255,255,255)
+        if grabbing then
+            task.spawn(function()
+                while grabbing do
+                    pcall(function()
+                        Replicated.Packages.Knit.Services.CombatService.RF.Grab:InvokeServer()
+                    end)
+                    task.wait()
+                end
+            end)
+        end
+    elseif name == "SpamNotify" then
+        spamming = not spamming
+        spamBtn.Text = spamming and "spam notify: on" or "spam notify: off"
+        spamBtn.BackgroundColor3 = spamming and Color3.fromRGB(210,210,210) or Color3.fromRGB(255,255,255)
+        if spamming then
+            task.spawn(function()
+                while spamming do
+                    local msg = msgBox.Text ~= "" and msgBox.Text or "default"
+                    for _, player in ipairs(Players:GetPlayers()) do
+                        if player ~= me then
+                            pcall(function()
+                                Replicated.RequestPrompt:FireServer(70932517024004, msg, player, 0, 3, 0, 0, 0, 0)
+                            end)
+                        end
+                    end
+                    task.wait(0.1)
+                end
+            end)
+        end
+    elseif name == "HitboxAura" then
+        hitboxAuraEnabled = not hitboxAuraEnabled
+        hitboxBtn.Text = hitboxAuraEnabled and "hitbox aura: on" or "hitbox aura: off"
+        hitboxBtn.BackgroundColor3 = hitboxAuraEnabled and Color3.fromRGB(210,210,210) or Color3.fromRGB(255,255,255)
+    elseif name == "Healthbars" then
+        healthbarEnabled = not healthbarEnabled
+        healthbarBtn.Text = healthbarEnabled and "healthbars: on" or "healthbars: off"
+        healthbarBtn.BackgroundColor3 = healthbarEnabled and Color3.fromRGB(210,210,210) or Color3.fromRGB(255,255,255)
+        refreshAllHealthbars()
+    elseif name == "TpWalk" then
+        tpwalkEnabled = not tpwalkEnabled
+        tpwalkBtn.Text = tpwalkEnabled and "tpwalk: on" or "tpwalk: off"
+        tpwalkBtn.BackgroundColor3 = tpwalkEnabled and Color3.fromRGB(210,210,210) or Color3.fromRGB(255,255,255)
+        if tpwalkEnabled then
+            if tpwalkingConn then tpwalkingConn:Disconnect() end
+            tpwalkingConn = RS.Heartbeat:Connect(function(delta)
+                local char = me.Character
+                local hum = char and char:FindFirstChildWhichIsA("Humanoid")
+                if char and hum and hum.Parent and hum.MoveDirection.Magnitude > 0 then
+                    char:TranslateBy(hum.MoveDirection * tpwalkSpeed * delta * 10)
+                end
+            end)
+        else
+            if tpwalkingConn then tpwalkingConn:Disconnect() tpwalkingConn = nil end
+        end
+    elseif name == "FlyJump" then
+        flyjumpEnabled = not flyjumpEnabled
+        flyjumpBtn.Text = flyjumpEnabled and "flyjump: on" or "flyjump: off"
+        flyjumpBtn.BackgroundColor3 = flyjumpEnabled and Color3.fromRGB(210,210,210) or Color3.fromRGB(255,255,255)
+        if flyjumpEnabled then
+            if flyjumpConn then flyjumpConn:Disconnect() end
+            flyjumpConn = UIS.JumpRequest:Connect(function()
+                local hum = me.Character and me.Character:FindFirstChildOfClass("Humanoid")
+                if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
+            end)
+        else
+            if flyjumpConn then flyjumpConn:Disconnect() flyjumpConn = nil end
+        end
+    elseif name == "AutoClicker" then
+        autoclickerEnabled = not autoclickerEnabled
+        autoclickBtn.Text = autoclickerEnabled and "autoclicker: on" or "autoclicker: off"
+        autoclickBtn.BackgroundColor3 = autoclickerEnabled and Color3.fromRGB(210,210,210) or Color3.fromRGB(255,255,255)
+        if autoclickerEnabled then
+            showNotification("VIM clicks on mobile are a little buggy, when turned off, give it 10 seconds before you could move")
+            if autoclickerConn then autoclickerConn:Disconnect() end
+            autoclickerConn = task.spawn(function()
+                while autoclickerEnabled do
+                    local camera = workspace.CurrentCamera
+                    if camera then
+                        local x = camera.ViewportSize.X / 2
+                        local y = camera.ViewportSize.Y / 2
+                        pcall(function()
+                            VirtualInputManager:SendMouseButtonEvent(x, y, 0, true, game, 1)
+                            task.wait(0.01)
+                            VirtualInputManager:SendMouseButtonEvent(x, y, 0, false, game, 1)
+                        end)
+                    end
+                    task.wait(1 / autoclickerCps)
+                end
+            end)
+        else
+            showNotification("VIM clicks on mobile devices are buggy, please give it 10 seconds before you can move")
+            if autoclickerConn then
+                task.cancel(autoclickerConn)
+                autoclickerConn = nil
+            end
+        end
+    elseif name == "PromptDelete" then
+        promptDeleteEnabled = not promptDeleteEnabled
+        promptDeleteBtn.Text = promptDeleteEnabled and "no prompts: on" or "no prompts: off"
+        promptDeleteBtn.BackgroundColor3 = promptDeleteEnabled and Color3.fromRGB(210,210,210) or Color3.fromRGB(255,255,255)
+        
+        if promptDeleteEnabled then
+            -- Store original distances
+            originalPromptDistances = {}
+            for _, v in ipairs(workspace:GetDescendants()) do
+                if v:IsA("ProximityPrompt") then
+                    originalPromptDistances[v] = v.MaxActivationDistance
+                    v.MaxActivationDistance = 0
+                end
+            end
+            
+            if promptDeleteConn then promptDeleteConn:Disconnect() end
+            promptDeleteConn = me.PlayerGui.ChildAdded:Connect(function(child)
+                if child.Name == "PromptFavorite" then
+                    task.defer(function()
+                        pcall(function() child:Destroy() end)
+                    end)
+                end
+            end)
+            
+            local existing = me.PlayerGui:FindFirstChild("PromptFavorite")
+            if existing then
+                pcall(function() existing:Destroy() end)
+            end
+        else
+            -- Restore original distances
+            for prompt, dist in pairs(originalPromptDistances) do
+                if prompt and prompt.Parent then
+                    prompt.MaxActivationDistance = dist
+                end
+            end
+            originalPromptDistances = {}
+            
+            if promptDeleteConn then
+                promptDeleteConn:Disconnect()
+                promptDeleteConn = nil
+            end
+        end
+    elseif name == "Insta" then
+        -- call the refactored insta function so binds and button behave the same
+        performInsta()
+    end
+end
+
+-- Wire up buttons to toggleFeature where appropriate
+actionBtn.MouseButton1Click:Connect(function() toggleFeature("KillAura") end)
+blockBtn.MouseButton1Click:Connect(function() toggleFeature("AutoBlock") end)
+arcBtn.MouseButton1Click:Connect(function() toggleFeature("AntiRagdoll") end)
+arcBtn2.MouseButton1Click:Connect(function() toggleFeature("AntiGrabRag") end)
+deathBtn.MouseButton1Click:Connect(function() toggleFeature("DeathTp") end)
+noSlowBtn.MouseButton1Click:Connect(function() toggleFeature("NoSlow") end)
+antiGrabBtn.MouseButton1Click:Connect(function() toggleFeature("AntiGrab") end)
+grabBtn.MouseButton1Click:Connect(function() toggleFeature("AutoGrab") end)
+spamBtn.MouseButton1Click:Connect(function() toggleFeature("SpamNotify") end)
+healthbarBtn.MouseButton1Click:Connect(function() toggleFeature("Healthbars") end)
+tpwalkBtn.MouseButton1Click:Connect(function() toggleFeature("TpWalk") end)
+flyjumpBtn.MouseButton1Click:Connect(function() toggleFeature("FlyJump") end)
+autoclickBtn.MouseButton1Click:Connect(function() toggleFeature("AutoClicker") end)
+promptDeleteBtn.MouseButton1Click:Connect(function() toggleFeature("PromptDelete") end)
+hitboxBtn.MouseButton1Click:Connect(function() toggleFeature("HitboxAura") end)
+
+UIS.InputBegan:Connect(function(input, processed)
+    if processed then return end
+
+    if input.KeyCode == Enum.KeyCode.LeftControl then
+        frame.Visible = not frame.Visible
+        return
+    end
+    
+    if bindingFor then
+        local currentFeature = bindingFor
+        bindingFor = nil
+        if input.KeyCode ~= Enum.KeyCode.Escape then
+            Keybinds[currentFeature] = input.KeyCode
+            if bindButtons[currentFeature] then
+                bindButtons[currentFeature].Text = tostring(input.KeyCode):gsub("Enum.KeyCode.", "")
+            end
+        else
+            Keybinds[currentFeature] = nil
+            if bindButtons[currentFeature] then
+                bindButtons[currentFeature].Text = "bind"
+            end
+        end
+        return
+    end
+    
+    for featureName, registeredKey in pairs(Keybinds) do
+        if registeredKey and input.KeyCode == registeredKey then
+            toggleFeature(featureName)
+        end
+    end
+end)
+
+-- End of script
