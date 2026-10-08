@@ -1,0 +1,138 @@
+local CoreGui = game:GetService("CoreGui")
+if CoreGui:FindFirstChild("ExecutorFPSCounterGui") then
+    CoreGui.ExecutorFPSCounterGui:Destroy()
+end
+
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "ExecutorFPSCounterGui"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+local AnchorFrame = Instance.new("Frame")
+AnchorFrame.Name = "AnchorFrame"
+AnchorFrame.Size = UDim2.new(0, 110, 0, 35)
+AnchorFrame.Position = UDim2.new(0.05, 0, 0.05, 0)
+AnchorFrame.BackgroundColor3 = Color3.fromRGB(25, 25, 28)
+AnchorFrame.BorderSizePixel = 0
+AnchorFrame.Active = true
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 6)
+UICorner.Parent = AnchorFrame
+
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Color = Color3.fromRGB(60, 60, 65)
+UIStroke.Thickness = 1
+UIStroke.Parent = AnchorFrame
+
+local TextLabel = Instance.new("TextLabel")
+TextLabel.Name = "FPSDisplay"
+TextLabel.Size = UDim2.new(1, 0, 1, 0)
+TextLabel.BackgroundTransparency = 1
+TextLabel.Text = "FPS: --"
+TextLabel.TextColor3 = Color3.fromRGB(240, 240, 243)
+TextLabel.Font = Enum.Font.BuilderSansBold
+TextLabel.TextSize = 15
+TextLabel.TextXAlignment = Enum.TextXAlignment.Center
+TextLabel.Parent = AnchorFrame
+
+AnchorFrame.Parent = ScreenGui
+ScreenGui.Parent = CoreGui
+
+local UserInputService = game:GetService("UserInputService")
+local dragging, dragInput, dragStart, startPos
+
+local lastRelativeX = AnchorFrame.Position.X.Scale
+local lastRelativeY = AnchorFrame.Position.Y.Scale
+
+local function update(input)
+    local delta = input.Position - dragStart
+    local newXOffset = startPos.X.Offset + delta.X
+    local newYOffset = startPos.Y.Offset + delta.Y
+    
+    AnchorFrame.Position = UDim2.new(startPos.X.Scale, newXOffset, startPos.Y.Scale, newYOffset)
+    
+    local screenSize = ScreenGui.AbsoluteSize
+    if screenSize.X > 0 and screenSize.Y > 0 then
+        lastRelativeX = AnchorFrame.AbsolutePosition.X / screenSize.X
+        lastRelativeY = AnchorFrame.AbsolutePosition.Y / screenSize.Y
+    end
+end
+
+AnchorFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = AnchorFrame.Position
+
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then
+                dragging = false
+            end
+        end)
+    end
+end)
+
+AnchorFrame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+        dragInput = input
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        update(input)
+    end
+end)
+
+ScreenGui:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+    AnchorFrame.Position = UDim2.new(lastRelativeX, 0, lastRelativeY, 0)
+end)
+
+local RunService = game:GetService("RunService")
+local fpsTable = {}
+local maxSamples = 144
+local updateInterval = 1.0
+local nextUpdateTime = 0
+
+local connection
+connection = RunService.RenderStepped:Connect(function(deltaTime)
+    if not AnchorFrame or not AnchorFrame.Parent then
+        connection:Disconnect()
+        return
+    end
+
+    if deltaTime <= 0 then 
+        return 
+    end
+
+    local currentFps = 1 / deltaTime
+    table.insert(fpsTable, currentFps)
+
+    if #fpsTable > maxSamples then
+        table.remove(fpsTable, 1)
+    end
+
+    local currentTime = os.clock()
+    if currentTime >= nextUpdateTime then
+        nextUpdateTime = currentTime + updateInterval
+
+        local sum = 0
+        for _, fpsValue in ipairs(fpsTable) do
+            sum += fpsValue
+        end
+
+        local averageFps = math.round(sum / #fpsTable)
+        TextLabel.Text = "FPS: " .. averageFps
+        
+        if averageFps >= 55 then
+            TextLabel.TextColor3 = Color3.fromRGB(120, 240, 120)
+        elseif averageFps >= 30 then
+            TextLabel.TextColor3 = Color3.fromRGB(240, 180, 80)
+        else
+            TextLabel.TextColor3 = Color3.fromRGB(240, 90, 90)
+        end
+
+        table.clear(fpsTable)
+    end
+end)
